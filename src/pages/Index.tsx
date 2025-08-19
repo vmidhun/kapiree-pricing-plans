@@ -4,22 +4,19 @@ import { CreditCard } from "@/components/CreditCard";
 import { StoragePolicy } from "@/components/StoragePolicy";
 import { AddOns } from "@/components/AddOns";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 const Index = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleSubscribe = (plan: string) => {
-    toast({
-      title: "Coming Soon!",
-      description: `${plan} subscription will be available once Stripe is integrated.`,
-    });
+    navigate(`/checkout?plan=${encodeURIComponent(plan)}&amount=$10&type=subscription`);
   };
 
   const handlePurchaseCredits = (credits: number) => {
-    toast({
-      title: "Coming Soon!",
-      description: `${credits} credits purchase will be available once Stripe is integrated.`,
-    });
+    const amount = credits === 30 ? '$25' : '$100';
+    navigate(`/checkout?plan=${credits} Credits&amount=${amount}&type=payment`);
   };
 
   const basePlanFeatures = [
