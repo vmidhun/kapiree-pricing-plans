@@ -2,14 +2,45 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Kapiree Pricing Page Design System - Professional SaaS Theme */
 
 @layer base {
   :root {
+    /* Brand Colors */
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 215 25% 15%;
+    
+    /* Primary Brand - Professional Blue */
+    --primary: 217 91% 60%;
+    --primary-glow: 217 91% 70%;
+    --primary-dark: 217 91% 45%;
+    
+    /* Secondary - Purple Accent */
+    --secondary-accent: 252 56% 57%;
+    --secondary-accent-light: 252 56% 67%;
+    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(217, 91%, 60%), hsl(252, 56%, 57%));
+    --gradient-secondary: linear-gradient(135deg, hsl(217, 91%, 70%), hsl(252, 56%, 67%));
+    --gradient-subtle: linear-gradient(180deg, hsl(0, 0%, 100%), hsl(217, 91%, 98%));
+    
+    /* Success & Feature Colors */
+    --success: 142 76% 36%;
+    --success-light: 142 76% 46%;
+    
+    /* Pricing Card Colors */
+    --card-premium: hsl(217, 91%, 60%);
+    --card-premium-bg: hsl(217, 91%, 98%);
+    --card-border-premium: hsl(217, 91%, 85%);
+    
+    /* Shadows */
+    --shadow-card: 0 4px 6px -1px hsl(217, 91%, 60% / 0.1), 0 2px 4px -1px hsl(217, 91%, 60% / 0.06);
+    --shadow-card-hover: 0 10px 15px -3px hsl(217, 91%, 60% / 0.15), 0 4px 6px -2px hsl(217, 91%, 60% / 0.08);
+    --shadow-premium: 0 8px 25px -5px hsl(217, 91%, 60% / 0.25);
+    
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
@@ -17,11 +48,11 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217 91% 98%;
+    --secondary-foreground: 217 91% 25%;
 
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
