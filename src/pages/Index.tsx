@@ -37,19 +37,8 @@ const Index = () => {
       <PricingHero />
       
       {/* Main Subscription */}
-      <section className="py-20 px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold mb-4">
-              <span className="bg-gradient-primary bg-clip-text text-transparent">
-                Simple, Transparent Pricing
-              </span>
-            </h2>
-            <p className="text-xl text-muted-foreground">
-              Start with our base plan and scale as you grow
-            </p>
-          </div>
-          
+      <section className="py-12 px-6">
+        <div className="max-w-4xl mx-auto">
           <div className="flex justify-center">
             <div className="w-full max-w-md">
               <PricingCard
@@ -67,23 +56,20 @@ const Index = () => {
       </section>
 
       {/* Credit System */}
-      <section className="py-20 px-6 bg-muted/30">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold mb-4">
+      <section className="py-12 px-6 bg-muted/30">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold mb-2">
               <span className="bg-gradient-primary bg-clip-text text-transparent">
                 Credit Packs
               </span>
             </h2>
-            <p className="text-xl text-muted-foreground mb-8">
-              Need more interviews? Purchase credits in bulk and save
+            <p className="text-muted-foreground mb-4">
+              1 video session = 1 credit
             </p>
-            <div className="inline-flex items-center gap-2 bg-card px-4 py-2 rounded-full border">
-              <span className="text-sm text-muted-foreground">1 video session = 1 credit</span>
-            </div>
           </div>
           
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
             <CreditCard
               credits={30}
               price="$25"
@@ -105,32 +91,6 @@ const Index = () => {
 
       <StoragePolicy />
       <AddOns />
-      
-      {/* CTA Section */}
-      <section className="py-20 px-6 bg-gradient-subtle">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-4xl font-bold mb-6">
-            Ready to Transform Your <br />
-            <span className="bg-gradient-primary bg-clip-text text-transparent">
-              Hiring Process?
-            </span>
-          </h2>
-          <p className="text-xl text-muted-foreground mb-8">
-            Join thousands of companies already using Kapiree to find the best talent
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button 
-              onClick={() => handleSubscribe("Base Plan")}
-              className="px-8 py-4 bg-gradient-primary text-white rounded-lg font-semibold hover:bg-gradient-secondary transition-all duration-300 shadow-lg hover:shadow-xl"
-            >
-              Start Your Free Trial
-            </button>
-            <button className="px-8 py-4 border border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition-all duration-300">
-              Schedule Demo
-            </button>
-          </div>
-        </div>
-      </section>
     </div>
   );
 };

@@ -25,17 +25,14 @@ export const StoragePolicy = () => {
   ];
 
   return (
-    <section className="py-20 px-6 bg-muted/30">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold mb-4">
+    <section className="py-12 px-6">
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold mb-2">
             <span className="bg-gradient-primary bg-clip-text text-transparent">
               Storage Policy
             </span>
           </h2>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Transparent and flexible storage options for your video interviews
-          </p>
         </div>
         
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">

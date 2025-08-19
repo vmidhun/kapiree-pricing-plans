@@ -30,17 +30,14 @@ export const AddOns = () => {
   ];
 
   return (
-    <section className="py-20 px-6">
+    <section className="py-12 px-6 bg-muted/30">
       <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold mb-4">
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold mb-2">
             <span className="bg-gradient-primary bg-clip-text text-transparent">
-              Optional Add-Ons
+              Add-Ons
             </span>
           </h2>
-          <p className="text-xl text-muted-foreground">
-            Enhance your experience with additional features
-          </p>
         </div>
         
         <div className="grid md:grid-cols-2 gap-8">

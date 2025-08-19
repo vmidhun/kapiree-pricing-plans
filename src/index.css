@@ -10,19 +10,19 @@
     --background: 0 0% 100%;
     --foreground: 215 25% 15%;
     
-    /* Primary Brand - Professional Blue */
-    --primary: 217 91% 60%;
-    --primary-glow: 217 91% 70%;
-    --primary-dark: 217 91% 45%;
+    /* Primary Brand - Kapiree Purple */
+    --primary: 268 89% 35%;
+    --primary-glow: 268 89% 45%;
+    --primary-dark: 268 89% 25%;
     
     /* Secondary - Purple Accent */
-    --secondary-accent: 252 56% 57%;
-    --secondary-accent-light: 252 56% 67%;
+    --secondary-accent: 268 89% 55%;
+    --secondary-accent-light: 268 89% 65%;
     
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(217, 91%, 60%), hsl(252, 56%, 57%));
-    --gradient-secondary: linear-gradient(135deg, hsl(217, 91%, 70%), hsl(252, 56%, 67%));
-    --gradient-subtle: linear-gradient(180deg, hsl(0, 0%, 100%), hsl(217, 91%, 98%));
+    --gradient-primary: linear-gradient(135deg, hsl(268, 89%, 35%), hsl(268, 89%, 45%));
+    --gradient-secondary: linear-gradient(135deg, hsl(268, 89%, 45%), hsl(268, 89%, 55%));
+    --gradient-subtle: linear-gradient(180deg, hsl(0, 0%, 100%), hsl(268, 89%, 98%));
     
     /* Success & Feature Colors */
     --success: 142 76% 36%;
@@ -48,7 +48,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 217 91% 60%;
+    --primary: 268 89% 35%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 217 91% 98%;
