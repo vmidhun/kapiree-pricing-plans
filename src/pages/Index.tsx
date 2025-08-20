@@ -24,9 +24,7 @@ const Index = () => {
     "6 months video storage for all interviews",
     "Request and conduct video interviews",
     "Record & review interview sessions",
-    "Candidate notes & evaluation tools",
-    "Email support",
-    "HD video quality"
+    "Candidate notes & evaluation tools"
   ];
 
   return (
@@ -46,7 +44,7 @@ const Index = () => {
                   description="Perfect for individual recruiters and small teams"
                   features={basePlanFeatures}
                   isPopular={true}
-                  buttonText="Start Free Trial"
+                  buttonText="Start with first month free"
                   onSelect={() => handleSubscribe("Base Plan")}
                 />
               </div>
