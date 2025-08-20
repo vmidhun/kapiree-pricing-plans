@@ -11,12 +11,12 @@ const Index = () => {
   const navigate = useNavigate();
 
   const handleSubscribe = (plan: string) => {
-    navigate(`/checkout?plan=${encodeURIComponent(plan)}&amount=$10&type=subscription`);
+    navigate(`/cart?plan=${encodeURIComponent(plan)}&amount=$10&type=subscription`);
   };
 
   const handlePurchaseCredits = (credits: number) => {
     const amount = credits === 30 ? '$25' : '$100';
-    navigate(`/checkout?plan=${credits} Credits&amount=${amount}&type=payment`);
+    navigate(`/cart?plan=${credits} Credits&amount=${amount}&type=payment`);
   };
 
   const basePlanFeatures = [
