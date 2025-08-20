@@ -89,8 +89,8 @@ const Index = () => {
         </div>
       </section>
 
-      <StoragePolicy />
       <AddOns />
+      <StoragePolicy />
     </div>
   );
 };
