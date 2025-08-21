@@ -70,12 +70,6 @@ export const AddOns = () => {
                 ))}
               </ul>
               
-              <Button 
-                variant="outline" 
-                className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-              >
-                Add to Plan
-              </Button>
             </div>
           ))}
         </div>

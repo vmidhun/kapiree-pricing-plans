@@ -65,22 +65,6 @@ export const CreditCard = ({
           <span>Valid for {validity}</span>
         </div>
         
-        <Button 
-          variant={isPopular ? "default" : "outline"}
-          className={`
-            w-full transition-all duration-300
-            ${isPopular 
-              ? 'bg-gradient-primary hover:bg-gradient-secondary' 
-              : 'border-secondary-accent text-secondary-accent hover:bg-secondary-accent hover:text-white'
-            }
-          `}
-          onClick={(e) => {
-            e.stopPropagation();
-            onPurchase();
-          }}
-        >
-          Purchase Credits
-        </Button>
       </div>
     </div>
   );
