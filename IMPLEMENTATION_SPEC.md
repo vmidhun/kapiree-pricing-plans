@@ -176,6 +176,59 @@ Before implementing payments, user must provide:
 - FAQ section
 - Help tooltips
 
+### Phase 7: Refund & Cancellation Management
+
+#### 7.1 Refund Processing
+- **Automatic Refunds**: For subscription cancellations within grace period
+- **Manual Refunds**: Admin interface for customer service refunds
+- **Partial Refunds**: Pro-rated refunds for unused credits/time
+- **Refund Tracking**: Database logging of all refund transactions
+
+#### 7.2 Account Cancellation Scenarios
+```typescript
+// Cancellation types to handle
+interface CancellationScenario {
+  type: 'immediate' | 'end_of_period' | 'downgrade';
+  reason: 'user_request' | 'payment_failure' | 'policy_violation';
+  refund_eligible: boolean;
+  data_retention_days: number;
+}
+```
+
+#### 7.3 Subscription Cancellation Flow
+- **Immediate Cancellation**: Cancel access immediately with pro-rated refund
+- **End-of-Period**: Maintain access until current billing cycle ends
+- **Downgrade**: Convert premium to basic plan
+- **Cancellation Survey**: Capture feedback for retention insights
+
+#### 7.4 Data Retention Policies
+- **User Data**: Retain for 30 days after cancellation
+- **Payment Data**: Retain for 7 years (compliance requirement)
+- **Usage Analytics**: Anonymize after 90 days
+- **Support Tickets**: Retain for 2 years
+
+#### 7.5 Required Edge Functions for Cancellations
+```typescript
+// Additional edge functions needed
+5. process-refund (handle refund requests)
+6. cancel-subscription (immediate cancellation)
+7. schedule-cancellation (end-of-period cancellation)
+8. export-user-data (GDPR compliance)
+9. purge-user-data (complete data removal)
+```
+
+#### 7.6 Customer Retention Features
+- **Cancellation Prevention**: Offer discounts/pause options
+- **Win-back Campaigns**: Re-engagement emails for cancelled users
+- **Exit Surveys**: Understand cancellation reasons
+- **Pause Subscription**: Temporary hold instead of cancellation
+
+#### 7.7 Admin Dashboard Requirements
+- **Refund Management**: Process manual refunds
+- **Cancellation Analytics**: Track cancellation rates and reasons
+- **Customer Lifecycle**: View complete customer journey
+- **Retention Metrics**: Monitor churn and win-back success
+
 ## Technical Requirements
 
 ### Frontend Dependencies
