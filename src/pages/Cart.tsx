@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, Plus, Minus } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { AuthModal } from "@/components/AuthModal";
 
 interface CartItem {
@@ -173,15 +174,17 @@ const Cart = () => {
                     <div>
                       <h3 className="font-semibold mb-3 text-primary">Subscription Plan</h3>
                       {planItems.map(item => (
-                        <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div key={item.id} className="flex items-center gap-4 p-4 border rounded-lg">
+                          <Checkbox 
+                            checked={true} 
+                            disabled={true}
+                            className="opacity-50"
+                          />
                           <div className="flex-1">
                             <h4 className="font-medium">{item.name}</h4>
                             <p className="text-sm text-muted-foreground">{item.description}</p>
                             <p className="text-lg font-semibold text-primary">{item.price}</p>
                           </div>
-                          <Button variant="ghost" size="sm" onClick={() => removeFromCart(item.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
                         </div>
                       ))}
                     </div>
@@ -191,7 +194,8 @@ const Cart = () => {
                     <div>
                       <h3 className="font-semibold mb-3 text-primary">Credit Packs</h3>
                       {creditItems.map(item => (
-                        <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div key={item.id} className="flex items-center gap-4 p-4 border rounded-lg">
+                          <Checkbox checked={true} />
                           <div className="flex-1">
                             <h4 className="font-medium">{item.name}</h4>
                             <p className="text-sm text-muted-foreground">{item.description}</p>
@@ -233,7 +237,8 @@ const Cart = () => {
                     <div>
                       <h3 className="font-semibold mb-3 text-primary">Add-ons</h3>
                       {addonItems.map(item => (
-                        <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div key={item.id} className="flex items-center gap-4 p-4 border rounded-lg">
+                          <Checkbox checked={true} />
                           <div className="flex-1">
                             <h4 className="font-medium">{item.name}</h4>
                             <p className="text-sm text-muted-foreground">{item.description}</p>
