@@ -43,10 +43,12 @@ graph TD
     R --> T[Payment Success]
     S --> T
     T --> U[Order Confirmation]
+    U --> V[Send Order Confirmation Email]
     
     style A fill:#e1f5fe
     style T fill:#c8e6c9
     style U fill:#c8e6c9
+    style V fill:#bbdefb
 ```
 
 ### Authentication Flow
@@ -69,6 +71,7 @@ graph TD
     J --> L{Authentication}
     
     K -->|Success| M[Email Verification]
+    M --> M1[Send Verification Email]
     K -->|Error| N[Show Error Message]
     
     L -->|Success| O[Set User Session]
@@ -286,7 +289,8 @@ sequenceDiagram
 graph TD
     A[User Subscribes] --> B[Stripe Creates Subscription]
     B --> C[Webhook/Verification Updates DB]
-    C --> D[User Has Active Subscription]
+    C --> C1[Send Subscription Confirmation Email]
+    C1 --> D[User Has Active Subscription]
     
     D --> E{User Action}
     E -->|Manage Subscription| F[Customer Portal]
@@ -299,15 +303,22 @@ graph TD
     
     G --> L{Cancellation Type}
     L -->|Immediate| M[Cancel Now + Refund]
+    M --> M1[Send Cancellation Confirmation Email]
     L -->|End of Period| N[Cancel at Period End]
+    N --> N1[Send Cancellation Confirmation Email]
     
     H --> O[Create New Subscription]
     O --> P[Cancel Old Subscription]
     P --> Q[Update User Record]
+    Q --> Q1[Send Plan Change Confirmation Email]
     
     style A fill:#4caf50
     style M fill:#f44336
     style N fill:#ff9800
+    style V fill:#bbdefb
+    style M1 fill:#bbdefb
+    style N1 fill:#bbdefb
+    style Q1 fill:#bbdefb
 ```
 
 ## 5. Error Handling & Recovery Flow

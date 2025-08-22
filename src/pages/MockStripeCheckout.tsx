@@ -1,25 +1,96 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, CreditCard, Lock } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 const MockStripeCheckout = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [isProcessing, setIsProcessing] = useState(false);
-  
+  const { toast } = useToast();
+  const { user, setUser } = useAuth();
+
   const planName = searchParams.get('plan') || 'Base Plan';
   const amount = searchParams.get('amount') || '$10';
   const type = searchParams.get('type') || 'subscription';
 
+  useEffect(() => {
+    if (user && type === 'subscription') {
+      // If an authenticated user tries to access a subscription payment,
+      // they should probably be redirected to their subscription management page
+      // or a page that confirms their current subscription.
+      // For now, we'll just redirect to dashboard.
+      toast({
+        title: "Already logged in",
+        description: "You are already logged in. Redirecting to dashboard.",
+      });
+      navigate('/dashboard');
+    }
+  }, [user, type, navigate, toast]);
+
   const handlePayment = async () => {
     setIsProcessing(true);
-    // Simulate payment processing
-    setTimeout(() => {
-      navigate('/payment-success');
-    }, 3000);
+
+    if (type === 'payment') { // This is for credit purchases
+      const creditsMatch = planName.match(/(\d+)\s*Credits/);
+      const creditsToAdd = creditsMatch ? parseInt(creditsMatch[1], 10) : 0;
+
+      if (creditsToAdd > 0 && user) {
+        try {
+          const token = localStorage.getItem("authToken");
+          const response = await fetch("http://localhost:3000/api/auth/update-credits", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ creditsToAdd }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            toast({
+              title: "Credits purchased successfully!",
+              description: data.message,
+            });
+            setUser(data.user); // Update user context with new credits
+            navigate('/payment-success');
+          } else {
+            toast({
+              title: "Credit purchase failed",
+              description: data.message || "An error occurred.",
+              variant: "destructive",
+            });
+          }
+        } catch (error) {
+          console.error("Error updating credits:", error);
+          toast({
+            title: "Network error",
+            description: "Unable to connect to server. Please try again.",
+            variant: "destructive",
+          });
+        } finally {
+          setIsProcessing(false);
+        }
+      } else {
+        toast({
+          title: "Invalid credit purchase",
+          description: "Could not determine credits to add or user not logged in.",
+          variant: "destructive",
+        });
+        setIsProcessing(false);
+      }
+    } else {
+      // Simulate payment processing for subscriptions
+      setTimeout(() => {
+        navigate('/payment-success');
+      }, 3000);
+    }
   };
 
   return (
@@ -63,14 +134,17 @@ const MockStripeCheckout = () => {
 
             {/* Payment Form */}
             <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Email</label>
-                <Input 
-                  type="email" 
-                  placeholder="john@example.com"
-                  defaultValue="demo@kapiree.com"
-                />
-              </div>
+              {/* Email field - conditionally render for guest checkout */}
+              {!user && (
+                <div>
+                  <label className="text-sm font-medium">Email</label>
+                  <Input 
+                    type="email" 
+                    placeholder="john@example.com"
+                    defaultValue="demo@kapiree.com"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="text-sm font-medium">Card information</label>

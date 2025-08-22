@@ -18,11 +18,11 @@ interface CartItem {
   quantity?: number;
 }
 
-const Cart = () => {
+const Renewal = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
   
   // Mock cart items based on URL params or default items
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
@@ -51,6 +51,14 @@ const Cart = () => {
           description: plan.includes("30") ? "Valid for 3 months" : "Valid for 6 months"
         });
       }
+    } else {
+        items.push({
+            id: "base-plan",
+            name: "Base Plan",
+            price: "$10/month",
+            type: "plan",
+            description: "10 credits per month + 6 months storage"
+          });
     }
     
     return items;
@@ -121,9 +129,6 @@ const Cart = () => {
 
   const calculateTotal = () => {
     return cartItems.reduce((total, item) => {
-      if (item.type === 'plan' && item.name.includes('Base Plan')) {
-        return total;
-      }
       const price = parseFloat(item.price.replace(/[$,/a-zA-Z]/g, ''));
       const quantity = item.quantity || 1;
       return total + (price * quantity);
@@ -159,8 +164,8 @@ const Cart = () => {
           <Button variant="ghost" onClick={() => navigate("/")} className="mb-4">
             ← Back to Pricing
           </Button>
-          <h1 className="text-3xl font-bold">Your Cart</h1>
-          <p className="text-muted-foreground">Review your selected items before checkout</p>
+          <h1 className="text-3xl font-bold">Renew Subscription</h1>
+          <p className="text-muted-foreground">Review and manage your subscription</p>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
@@ -186,15 +191,7 @@ const Cart = () => {
                           <div className="flex-1">
                             <h4 className="font-medium">{item.name}</h4>
                             <p className="text-sm text-muted-foreground">{item.description}</p>
-                            {item.name.includes("Base Plan") ? (
-                              <div>
-                                <span className="text-lg font-semibold text-primary">$0</span>
-                                <span className="text-sm text-muted-foreground line-through ml-2">{item.price}</span>
-                                <p className="text-xs text-muted-foreground">First month free. Renews at {item.price} from the next billing cycle.</p>
-                              </div>
-                            ) : (
-                              <p className="text-lg font-semibold text-primary">{item.price}</p>
-                            )}
+                            <p className="text-lg font-semibold text-primary">{item.price}</p>
                           </div>
                         </div>
                       ))}
@@ -288,7 +285,7 @@ const Cart = () => {
                       <Button 
                         variant={isInCart ? "secondary" : "outline"}
                         onClick={() => addToCart(item)}
-                        disabled={true}
+                        disabled={isInCart}
                       >
                         {isInCart ? "In Cart" : "Add to Cart"}
                       </Button>
@@ -316,7 +313,7 @@ const Cart = () => {
                       <Button 
                         variant={isInCart ? "secondary" : "outline"}
                         onClick={() => addToCart(item)}
-                        disabled={true}
+                        disabled={isInCart}
                       >
                         {isInCart ? "In Cart" : "Add to Cart"}
                       </Button>
@@ -342,15 +339,7 @@ const Cart = () => {
                       {cartItems.map(item => (
                         <div key={item.id} className="flex justify-between text-sm">
                           <span>{item.name} {item.quantity && item.quantity > 1 && `x${item.quantity}`}</span>
-                          <span>
-                            {item.name.includes("Base Plan") ? (
-                              <div>
-                                <span className="text-muted-foreground line-through">{item.price}</span> $0.00
-                              </div>
-                            ) : (
-                              item.price
-                            )}
-                          </span>
+                          <span>{item.price}</span>
                         </div>
                       ))}
                     </div>
@@ -397,4 +386,4 @@ const Cart = () => {
   );
 };
 
-export default Cart;
+export default Renewal;

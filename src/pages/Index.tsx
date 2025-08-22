@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"; // Added useEffect
 import { PricingHero } from "@/components/PricingHero";
 import { PricingCard } from "@/components/PricingCard";
 import { CreditCard } from "@/components/CreditCard";
@@ -5,10 +6,22 @@ import { StoragePolicy } from "@/components/StoragePolicy";
 import { AddOns } from "@/components/AddOns";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { AuthModal } from "@/components/AuthModal";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/use-auth"; // Import useAuth hook
 
 const Index = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const { isAuthenticated, isLoading } = useAuth(); // Get auth state
+
+  // Redirect authenticated users to dashboard
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      navigate("/dashboard");
+    }
+  }, [isAuthenticated, isLoading, navigate]);
 
   const handleSubscribe = (plan: string) => {
     navigate(`/cart?plan=${encodeURIComponent(plan)}&amount=$10&type=subscription`);
@@ -29,6 +42,11 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <header className="flex justify-end p-4">
+        {!isLoading && !isAuthenticated && ( // Conditionally render login button
+          <Button onClick={() => setIsAuthModalOpen(true)}>Login</Button>
+        )}
+      </header>
       <PricingHero />
       
       {/* Main Pricing Section - 2 Column Layout */}
@@ -77,7 +95,6 @@ const Index = () => {
                     price="$100"
                     validity="6 months"
                     originalValue="$150"
-                    isPopular={true}
                     onPurchase={() => handlePurchaseCredits(150)}
                   />
                 </div>
@@ -89,6 +106,15 @@ const Index = () => {
 
       <AddOns />
       <StoragePolicy />
+
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onSuccess={() => {
+          setIsAuthModalOpen(false);
+          navigate("/dashboard"); // Assuming a dashboard route for authenticated users
+        }}
+      />
     </div>
   );
 };

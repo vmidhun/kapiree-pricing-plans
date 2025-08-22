@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Video, Users, Shield } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export const PricingHero = () => {
   return (
@@ -13,6 +14,11 @@ export const PricingHero = () => {
         <p className="text-lg text-muted-foreground">
           Choose the plan that fits your hiring needs
         </p>
+        <div className="mt-4">
+          <Link to="/renewal">
+            <Button variant="link">Already a customer? Renew your subscription here.</Button>
+          </Link>
+        </div>
       </div>
     </section>
   );

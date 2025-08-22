@@ -30,24 +30,47 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Mock authentication delay
-    setTimeout(() => {
-      if (signInData.email && signInData.password) {
+
+    try {
+      const response = await fetch('http://localhost:3000/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: signInData.email,
+          password: signInData.password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Store token in localStorage
+        localStorage.setItem('authToken', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+
         toast({
-          title: "Welcome back!",
-          description: "You have been successfully signed in.",
+          title: "Sign in successful!",
+          description: data.message || "You have been successfully signed in.",
         });
         onSuccess();
       } else {
         toast({
           title: "Sign in failed",
-          description: "Please check your credentials and try again.",
+          description: data.message || "Please check your credentials and try again.",
           variant: "destructive",
         });
       }
+    } catch (error) {
+      toast({
+        title: "Network error",
+        description: "Unable to connect to server. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -64,23 +87,47 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
       return;
     }
 
-    // Mock registration delay
-    setTimeout(() => {
-      if (signUpData.email && signUpData.password && signUpData.firstName) {
+    try {
+      const response = await fetch('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: `${signUpData.firstName} ${signUpData.lastName}`.trim(),
+          email: signUpData.email,
+          password: signUpData.password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Store token in localStorage
+        localStorage.setItem('authToken', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+
         toast({
           title: "Account created!",
-          description: "Welcome! Your account has been successfully created.",
+          description: data.message || "Welcome! Your account has been successfully created.",
         });
         onSuccess();
       } else {
         toast({
           title: "Registration failed",
-          description: "Please fill in all required fields.",
+          description: data.message || "Please try again.",
           variant: "destructive",
         });
       }
+    } catch (error) {
+      toast({
+        title: "Network error",
+        description: "Unable to connect to server. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   const handleGuestCheckout = () => {
@@ -97,13 +144,13 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
         <DialogHeader>
           <DialogTitle>Complete Your Purchase</DialogTitle>
         </DialogHeader>
-        
+
         <Tabs defaultValue="signin" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="signin">Sign In</TabsTrigger>
             <TabsTrigger value="signup">Create Account</TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="signin">
             <Card>
               <CardHeader>
@@ -158,7 +205,7 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
               </CardContent>
             </Card>
           </TabsContent>
-          
+
           <TabsContent value="signup">
             <Card>
               <CardHeader>
