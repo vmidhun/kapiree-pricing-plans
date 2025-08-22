@@ -145,6 +145,9 @@ graph TB
     style L fill:#9c27b0
 ```
 
+### Email Content Management
+Email content for all user notifications is managed in `server/emails/email_templates.js`. This file exports functions that generate the HTML/text content for each specific email type, allowing for easy customization and localization.
+
 ### Database Schema Flow
 ```mermaid
 erDiagram
