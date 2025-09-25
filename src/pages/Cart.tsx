@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Trash2, Plus, Minus } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AuthModal } from "@/components/AuthModal";
+import { useAuth } from "@/hooks/use-auth"; // Import useAuth hook
 
 interface CartItem {
   id: string;
@@ -22,7 +23,7 @@ const Cart = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { isAuthenticated } = useAuth(); // Get auth state from hook
   
   // Mock cart items based on URL params or default items
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
@@ -143,7 +144,6 @@ const Cart = () => {
   };
 
   const handleAuthSuccess = () => {
-    setIsAuthenticated(true);
     setIsAuthModalOpen(false);
     handleCheckout();
   };

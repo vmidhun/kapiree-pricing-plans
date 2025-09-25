@@ -2,23 +2,23 @@ import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
 
 interface PricingCardProps {
-  title: string;
+  planName: string;
   price: string;
-  description: string;
+  interval: string;
   features: string[];
   isPopular?: boolean;
   buttonText: string;
-  onSelect: () => void;
+  onAction: () => void;
 }
 
 export const PricingCard = ({
-  title,
+  planName,
   price,
-  description,
+  interval,
   features,
   isPopular = false,
   buttonText,
-  onSelect,
+  onAction,
 }: PricingCardProps) => {
   return (
     <div 
@@ -30,17 +30,17 @@ export const PricingCard = ({
         }
         animate-scale-in hover:scale-105 cursor-pointer
       `}
-      onClick={onSelect}
+      onClick={onAction}
     >
       
       <div className="text-center mb-8">
-        <h3 className="text-2xl font-bold text-foreground mb-2">{title}</h3>
+        <h3 className="text-2xl font-bold text-foreground mb-2">{planName}</h3>
         <div className="mb-4">
           <span className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent">
             {price}
           </span>
         </div>
-        <p className="text-muted-foreground">{description}</p>
+        <p className="text-muted-foreground">{interval}</p>
       </div>
 
       <ul className="space-y-4 mb-8">
@@ -63,7 +63,7 @@ export const PricingCard = ({
         `}
         onClick={(e) => {
           e.stopPropagation();
-          onSelect();
+          onAction();
         }}
       >
         {buttonText}

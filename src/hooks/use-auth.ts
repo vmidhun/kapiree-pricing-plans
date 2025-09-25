@@ -5,6 +5,8 @@ interface User {
   username: string;
   email: string;
   credits: number; // Added credits
+  role: string; // User's role name
+  permissions: string[]; // Array of permission names
 }
 
 interface AuthState {
@@ -77,10 +79,15 @@ export const useAuth = () => {
     }));
   }, []);
 
+  const hasPermission = useCallback((permission: string): boolean => {
+    return authState.user?.permissions?.includes(permission) || false;
+  }, [authState.user]);
+
   return {
     ...authState,
     login,
     logout,
-    setUser, // Exposed setUser
+    setUser,
+    hasPermission, // Exposed hasPermission
   };
 };

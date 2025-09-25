@@ -14,22 +14,31 @@ const Index = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const { isAuthenticated, isLoading } = useAuth(); // Get auth state
+  const { isAuthenticated, isLoading } = useAuth();
+  const [pendingCartAction, setPendingCartAction] = useState<{ plan: string; amount: string; type: string } | null>(null);
 
-  // Redirect authenticated users to dashboard
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      navigate("/dashboard");
+  const handleAction = (plan: string, amount: string, type: string) => {
+    if (!isAuthenticated) {
+      setPendingCartAction({ plan, amount, type });
+      setIsAuthModalOpen(true);
+      toast({
+        title: "Authentication Required",
+        description: "Please log in or sign up to proceed with your selection.",
+        variant: "destructive",
+      });
+    } else {
+      const redirectPath = `/cart?plan=${encodeURIComponent(plan)}&amount=${amount}&type=${type}`;
+      navigate(redirectPath);
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  };
 
   const handleSubscribe = (plan: string) => {
-    navigate(`/cart?plan=${encodeURIComponent(plan)}&amount=$10&type=subscription`);
+    handleAction(plan, "$10", "subscription");
   };
 
   const handlePurchaseCredits = (credits: number) => {
     const amount = credits === 30 ? '$25' : '$100';
-    navigate(`/cart?plan=${credits} Credits&amount=${amount}&type=payment`);
+    handleAction(`${credits} Credits`, amount, "payment");
   };
 
   const basePlanFeatures = [
@@ -57,13 +66,13 @@ const Index = () => {
             <div className="flex justify-center lg:justify-end">
               <div className="w-full max-w-md">
                 <PricingCard
-                  title="Base Plan"
-                  price="$10/month"
-                  description="Perfect for individual recruiters and small teams"
+                  planName="Base Plan"
+                  price="$10"
+                  interval="month"
                   features={basePlanFeatures}
                   isPopular={true}
                   buttonText="Start with first month free"
-                  onSelect={() => handleSubscribe("Base Plan")}
+                  onAction={() => handleSubscribe("Base Plan")}
                 />
               </div>
             </div>
@@ -112,7 +121,12 @@ const Index = () => {
         onClose={() => setIsAuthModalOpen(false)}
         onSuccess={() => {
           setIsAuthModalOpen(false);
-          navigate("/dashboard"); // Assuming a dashboard route for authenticated users
+          if (pendingCartAction) {
+            navigate(`/cart?plan=${encodeURIComponent(pendingCartAction.plan)}&amount=${pendingCartAction.amount}&type=${pendingCartAction.type}`);
+            setPendingCartAction(null); // Clear pending action
+          } else {
+            navigate("/dashboard"); // Default to dashboard if no pending action
+          }
         }}
       />
     </div>

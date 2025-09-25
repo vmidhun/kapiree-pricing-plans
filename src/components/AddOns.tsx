@@ -1,9 +1,21 @@
 import { Button } from "@/components/ui/button";
 import { HardDrive, Users } from "lucide-react";
 
-export const AddOns = () => {
-  const addOns = [
+interface AddOnsProps {
+  onPurchaseAddOn?: (addOnId: string) => void;
+  availableAddOns?: Array<{
+    id: string;
+    name: string;
+    description: string;
+    price: string;
+    currency: string;
+  }>;
+}
+
+export const AddOns = ({ onPurchaseAddOn, availableAddOns }: AddOnsProps) => {
+  const defaultAddOns = [
     {
+      id: "extra-storage",
       icon: HardDrive,
       title: "Extra Storage",
       price: "$5/month",
@@ -16,6 +28,7 @@ export const AddOns = () => {
       ]
     },
     {
+      id: "team-access",
       icon: Users,
       title: "Team Access",
       price: "$15/month",
@@ -28,6 +41,8 @@ export const AddOns = () => {
       ]
     }
   ];
+
+  const addOns = availableAddOns || defaultAddOns;
 
   return (
     <section className="py-12 px-6 bg-muted/30">
@@ -49,7 +64,11 @@ export const AddOns = () => {
             >
               <div className="flex items-center gap-4 mb-6">
                 <div className="w-12 h-12 bg-gradient-primary rounded-lg flex items-center justify-center">
-                  <addOn.icon className="w-6 h-6 text-white" />
+                  {addOn.icon ? (
+                    <addOn.icon className="w-6 h-6 text-white" />
+                  ) : (
+                    <HardDrive className="w-6 h-6 text-white" />
+                  )}
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-foreground">{addOn.title}</h3>
@@ -62,7 +81,7 @@ export const AddOns = () => {
               <p className="text-muted-foreground mb-6">{addOn.description}</p>
               
               <ul className="space-y-3 mb-8">
-                {addOn.features.map((feature, featureIndex) => (
+                {addOn.features?.map((feature, featureIndex) => (
                   <li key={featureIndex} className="flex items-center gap-3">
                     <div className="w-2 h-2 bg-success rounded-full"></div>
                     <span className="text-foreground">{feature}</span>
@@ -70,6 +89,14 @@ export const AddOns = () => {
                 ))}
               </ul>
               
+              {onPurchaseAddOn && (
+                <Button 
+                  className="w-full bg-gradient-primary hover:bg-gradient-secondary"
+                  onClick={() => onPurchaseAddOn(addOn.id)}
+                >
+                  Buy Add-On
+                </Button>
+              )}
             </div>
           ))}
         </div>

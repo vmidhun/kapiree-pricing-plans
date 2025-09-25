@@ -34,7 +34,24 @@ const optionalAuth = (req, res, next) => {
   }
 };
 
+// Middleware to check if user has required permissions
+const authorize = (requiredPermissions) => (req, res, next) => {
+  if (!req.user || !req.user.permissions) {
+    return res.status(403).json({ message: 'Forbidden: User not authenticated or no permissions found.' });
+  }
+
+  const userPermissions = req.user.permissions;
+  const hasPermission = requiredPermissions.some(permission => userPermissions.includes(permission));
+
+  if (hasPermission) {
+    next();
+  } else {
+    return res.status(403).json({ message: 'Forbidden: Insufficient permissions.' });
+  }
+};
+
 module.exports = {
   authenticateToken,
   optionalAuth,
+  authorize,
 };

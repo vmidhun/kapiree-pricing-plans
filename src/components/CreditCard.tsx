@@ -8,6 +8,7 @@ interface CreditCardProps {
   originalValue?: string;
   isPopular?: boolean;
   onPurchase: () => void;
+  showBuyButton?: boolean;
 }
 
 export const CreditCard = ({
@@ -17,6 +18,7 @@ export const CreditCard = ({
   originalValue,
   isPopular = false,
   onPurchase,
+  showBuyButton = false,
 }: CreditCardProps) => {
   const savings = originalValue ? 
     Math.round(((parseFloat(originalValue.replace('$', '')) - parseFloat(price.replace('$', ''))) / parseFloat(originalValue.replace('$', ''))) * 100) 
@@ -32,7 +34,7 @@ export const CreditCard = ({
         }
         hover:scale-105 cursor-pointer animate-fade-up
       `}
-      onClick={onPurchase}
+      onClick={showBuyButton ? undefined : onPurchase}
     >
       {savings > 0 && (
         <div className="absolute -top-3 -right-3">
@@ -65,6 +67,17 @@ export const CreditCard = ({
           <span>Valid for {validity}</span>
         </div>
         
+        {showBuyButton && (
+          <Button 
+            className="w-full bg-gradient-primary hover:bg-gradient-secondary"
+            onClick={(e) => {
+              e.stopPropagation();
+              onPurchase();
+            }}
+          >
+            Buy Credits
+          </Button>
+        )}
       </div>
     </div>
   );

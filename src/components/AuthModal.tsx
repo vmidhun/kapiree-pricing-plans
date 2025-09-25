@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { api } from "@/lib/api";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -26,46 +28,36 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
     lastName: ""
   });
   const { toast } = useToast();
+  const { login } = useAuth();
 
   const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3000/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: signInData.email,
-          password: signInData.password,
-        }),
+      const data = await api.post<{
+        token: string;
+        user: { id: string; username: string; email: string; credits: number };
+        message: string;
+      }>("/api/auth/login", {
+        email: signInData.email,
+        password: signInData.password,
       });
 
-      const data = await response.json();
+      // Use the login function from useAuth
+      login(data.token, data.user);
 
-      if (response.ok) {
-        // Store token in localStorage
-        localStorage.setItem('authToken', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-
-        toast({
-          title: "Sign in successful!",
-          description: data.message || "You have been successfully signed in.",
-        });
-        onSuccess();
-      } else {
-        toast({
-          title: "Sign in failed",
-          description: data.message || "Please check your credentials and try again.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
       toast({
-        title: "Network error",
-        description: "Unable to connect to server. Please try again.",
+        title: "Sign in successful!",
+        description: data.message || "You have been successfully signed in.",
+      });
+      onSuccess();
+    } catch (error: unknown) {
+      const err = error as Error & { body?: unknown };
+      toast({
+        title: "Sign in failed",
+        description: (err?.body as { message?: string })?.message || err?.message || "Please check your credentials and try again.",
         variant: "destructive",
       });
     } finally {
@@ -74,6 +66,7 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
     e.preventDefault();
     setIsLoading(true);
 
@@ -88,41 +81,29 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
     }
 
     try {
-      const response = await fetch('http://localhost:3000/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username: `${signUpData.firstName} ${signUpData.lastName}`.trim(),
-          email: signUpData.email,
-          password: signUpData.password,
-        }),
+      const data = await api.post<{
+        token: string;
+        user: { id: string; username: string; email: string; credits: number };
+        message: string;
+      }>("/api/auth/register", {
+        username: `${signUpData.firstName} ${signUpData.lastName}`.trim(),
+        email: signUpData.email,
+        password: signUpData.password,
       });
 
-      const data = await response.json();
+      // Use the login function from useAuth
+      login(data.token, data.user);
 
-      if (response.ok) {
-        // Store token in localStorage
-        localStorage.setItem('authToken', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-
-        toast({
-          title: "Account created!",
-          description: data.message || "Welcome! Your account has been successfully created.",
-        });
-        onSuccess();
-      } else {
-        toast({
-          title: "Registration failed",
-          description: data.message || "Please try again.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
       toast({
-        title: "Network error",
-        description: "Unable to connect to server. Please try again.",
+        title: "Account created!",
+        description: data.message || "Welcome! Your account has been successfully created.",
+      });
+      onSuccess();
+    } catch (error: unknown) {
+      const err = error as Error & { body?: unknown };
+      toast({
+        title: "Registration failed",
+        description: (err?.body as { message?: string })?.message || err?.message || "Please try again.",
         variant: "destructive",
       });
     } finally {
