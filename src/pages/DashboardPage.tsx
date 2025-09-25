@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
 
 const DashboardPage = () => {
@@ -25,10 +25,10 @@ const DashboardPage = () => {
 
     const fetchUserProfile = async () => {
       try {
-        const data = await api.get<{ user: { id: string; username: string; email: string; credits: number } }>(
+        const response = await api.get<{ user: { id: string; username: string; email: string; credits: number; role: string; permissions: string[] } }>(
           "/api/auth/profile"
         );
-        setUser(data.user);
+        setUser(response.data.user);
       } catch (error: unknown) {
         const err = error as Error & { status?: number; body?: unknown };
         toast({

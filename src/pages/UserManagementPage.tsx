@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -44,11 +44,14 @@ const UserManagementPage: React.FC = () => {
   const canManageUsers = hasPermission('Manage Users');
 
   useEffect(() => {
+    console.log("UserManagementPage - canManageUsers:", canManageUsers); // Debugging log
     if (canManageUsers) {
+      setError(null); // Clear any previous permission error
       fetchUsersAndRoles();
     } else {
       setLoading(false);
       setError('You do not have permission to manage users.');
+      setUsers([]); // Clear users if permission is lost
     }
   }, [canManageUsers]);
 
@@ -57,8 +60,8 @@ const UserManagementPage: React.FC = () => {
     setError(null);
     try {
       const [usersResponse, rolesResponse] = await Promise.all([
-        api.get<{ users: User[] }>('/auth/users'),
-        api.get<{ roles: Role[] }>('/auth/roles'),
+        api.get<{ users: User[] }>('/api/auth/users'),
+        api.get<{ roles: Role[] }>('/api/auth/roles'),
       ]);
       setUsers(usersResponse.data.users);
       setRoles(rolesResponse.data.roles);
@@ -99,7 +102,7 @@ const UserManagementPage: React.FC = () => {
     if (!currentUser) return;
 
     try {
-      await api.put(`/auth/users/${currentUser.id}`, editFormData);
+      await api.put(`/api/auth/users/${currentUser.id}`, editFormData);
       toast.success('User updated successfully!');
       setIsEditDialogOpen(false);
       fetchUsersAndRoles(); // Refresh the list
@@ -113,7 +116,7 @@ const UserManagementPage: React.FC = () => {
     if (!currentUser) return;
 
     try {
-      await api.delete(`/auth/users/${currentUser.id}`);
+      await api.delete(`/api/auth/users/${currentUser.id}`);
       toast.success('User deleted successfully!');
       setIsDeleteDialogOpen(false);
       fetchUsersAndRoles(); // Refresh the list

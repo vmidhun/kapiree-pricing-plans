@@ -169,10 +169,6 @@ CREATE TABLE IF NOT EXISTS role_permissions (
     PRIMARY KEY (role_id, permission_id)
 );
 
--- Add role_id to users table
-ALTER TABLE users
-ADD COLUMN role_id VARCHAR(36) REFERENCES roles(id) ON DELETE SET NULL;
-
 -- Initial Data for Roles
 INSERT IGNORE INTO roles (id, name, description) VALUES
 ('role_tenant_admin', 'Tenant Admin', 'Administrator with full control over their tenant.'),
@@ -197,12 +193,14 @@ INSERT IGNORE INTO permissions (id, name, description) VALUES
 ('perm_subscriptions:view', 'View Subscriptions', 'Allows viewing subscription details.'),
 ('perm_subscriptions:manage', 'Manage Subscriptions', 'Allows managing subscription plans and billing.'),
 ('perm_pricing_plans:view', 'View Pricing Plans', 'Allows viewing available pricing plans.'),
-('perm_pricing_plans:manage', 'Manage Pricing Plans', 'Allows managing pricing plan definitions.');
+('perm_pricing_plans:manage', 'Manage Pricing Plans', 'Allows managing pricing plan definitions.'),
+('perm_roles:manage', 'Manage Roles', 'Allows creating, editing, and deleting roles and their permissions.');
 
 -- Assign Permissions to Roles
 
 -- Tenant Admin Role Permissions
 INSERT IGNORE INTO role_permissions (role_id, permission_id) VALUES
+('role_tenant_admin', 'perm_roles:manage'),
 ('role_tenant_admin', 'perm_dashboard:view'),
 ('role_tenant_admin', 'perm_jobs:view'),
 ('role_tenant_admin', 'perm_jobs:create'),

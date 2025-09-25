@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
 
 interface AuthModalProps {
@@ -36,21 +36,23 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
     setIsLoading(true);
 
     try {
-      const data = await api.post<{
+      const response = await api.post<{
         token: string;
-        user: { id: string; username: string; email: string; credits: number };
+        user: { id: string; username: string; email: string; credits: number; role: string; permissions: string[] };
         message: string;
       }>("/api/auth/login", {
         email: signInData.email,
         password: signInData.password,
       });
 
+      console.log("AuthModal - Login API response user:", response.data.user); // Debugging log
+
       // Use the login function from useAuth
-      login(data.token, data.user);
+      login(response.data.token, response.data.user);
 
       toast({
         title: "Sign in successful!",
-        description: data.message || "You have been successfully signed in.",
+        description: response.data.message || "You have been successfully signed in.",
       });
       onSuccess();
     } catch (error: unknown) {
@@ -81,9 +83,9 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
     }
 
     try {
-      const data = await api.post<{
+      const response = await api.post<{
         token: string;
-        user: { id: string; username: string; email: string; credits: number };
+        user: { id: string; username: string; email: string; credits: number; role: string; permissions: string[] };
         message: string;
       }>("/api/auth/register", {
         username: `${signUpData.firstName} ${signUpData.lastName}`.trim(),
@@ -91,12 +93,14 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
         password: signUpData.password,
       });
 
+      console.log("AuthModal - Register API response user:", response.data.user); // Debugging log
+
       // Use the login function from useAuth
-      login(data.token, data.user);
+      login(response.data.token, response.data.user);
 
       toast({
         title: "Account created!",
-        description: data.message || "Welcome! Your account has been successfully created.",
+        description: response.data.message || "Welcome! Your account has been successfully created.",
       });
       onSuccess();
     } catch (error: unknown) {

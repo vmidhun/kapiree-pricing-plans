@@ -30,7 +30,7 @@ import { CreditCard } from "@/components/CreditCard"; // Import CreditCard
 import { StoragePolicy } from "@/components/StoragePolicy"; // Import StoragePolicy
 import { AddOns } from "@/components/AddOns"; // Import AddOns
 import { AuthModal } from "@/components/AuthModal"; // Import AuthModal
-import { useAuth } from "@/hooks/use-auth"; // Import useAuth hook
+import { useAuth } from "@/context/AuthContext"; // Import useAuth hook
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"; // Import Tabs components
 import { api } from "@/lib/api";
 
@@ -131,8 +131,8 @@ const SubscriptionPage = () => {
   const fetchSubscriptionData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await api.get<{ subscription: Subscription | null }>("/api/auth/subscription");
-      setSubscription(data.subscription);
+      const response = await api.get<{ subscription: Subscription | null }>("/api/auth/subscription");
+      setSubscription(response.data.subscription);
     } catch (error: unknown) {
       const err = error as Error & { status?: number; body?: unknown };
       if (err?.status === 404) {
@@ -155,14 +155,14 @@ const SubscriptionPage = () => {
 
   const fetchAvailableProducts = useCallback(async () => {
     try {
-      const [creditPacksData, addOnsData, plansData] = await Promise.all([
+      const [creditPacksResponse, addOnsResponse, plansResponse] = await Promise.all([
         api.get<{ creditPacks: CreditPackDefinition[] }>("/api/auth/credit-packs/definitions"),
         api.get<{ addOns: AddOnDefinition[] }>("/api/auth/add-ons/definitions"),
         api.get<{ plans: PlanDefinition[] }>("/api/auth/plans"),
       ]);
-      setAvailableCreditPacks(creditPacksData.creditPacks);
-      setAvailableAddOns(addOnsData.addOns);
-      setAvailablePlans(plansData.plans);
+      setAvailableCreditPacks(creditPacksResponse.data.creditPacks);
+      setAvailableAddOns(addOnsResponse.data.addOns);
+      setAvailablePlans(plansResponse.data.plans);
     } catch (error) {
       console.error("Error fetching available products:", error);
     }

@@ -739,4 +739,159 @@ router.delete('/users/:userId', authenticateToken, authorize(['Manage Users']), 
   }
 });
 
+// Get permissions for a specific role
+router.get('/roles/:roleId/permissions', authenticateToken, authorize(['Manage Roles']), async (req, res) => {
+  const { roleId } = req.params;
+  try {
+    const [permissions] = await pool.query(
+      `SELECT p.id, p.name, p.description
+       FROM permissions p
+       JOIN role_permissions rp ON p.id = rp.permission_id
+       WHERE rp.role_id = ?`,
+      [roleId]
+    );
+    res.status(200).json({ permissions });
+  } catch (error) {
+    console.error('Error fetching role permissions:', error);
+    res.status(500).json({ message: 'Server error retrieving role permissions' });
+  }
+});
+
+// Create a new role
+router.post('/roles', authenticateToken, authorize(['Manage Roles']), async (req, res) => {
+  const { name, description, permissionIds } = req.body;
+  if (!name || !description) {
+    return res.status(400).json({ message: 'Role name and description are required.' });
+  }
+
+  const roleId = uuidv4();
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    await connection.query(
+      'INSERT INTO roles (id, name, description) VALUES (?, ?, ?)',
+      [roleId, name, description]
+    );
+
+    if (permissionIds && permissionIds.length > 0) {
+      const permissionValues = permissionIds.map((permId) => [roleId, permId]);
+      await connection.query(
+        'INSERT INTO role_permissions (role_id, permission_id) VALUES ?',
+        [permissionValues]
+      );
+    }
+
+    await connection.commit();
+
+    const [newRoleRows] = await pool.query(
+      `SELECT id, name, description FROM roles WHERE id = ?`,
+      [roleId]
+    );
+    const newRole = newRoleRows[0];
+
+    res.status(201).json({ message: 'Role created successfully.', role: newRole });
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error('Error creating role:', error);
+    res.status(500).json({ message: 'Server error creating role' });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// Update a role's details (name, description)
+router.put('/roles/:roleId', authenticateToken, authorize(['Manage Roles']), async (req, res) => {
+  const { roleId } = req.params;
+  const { name, description } = req.body;
+
+  if (!name || !description) {
+    return res.status(400).json({ message: 'Role name and description are required.' });
+  }
+
+  try {
+    const [result] = await pool.query(
+      'UPDATE roles SET name = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [name, description, roleId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Role not found.' });
+    }
+
+    res.status(200).json({ message: 'Role updated successfully.' });
+  } catch (error) {
+    console.error('Error updating role:', error);
+    res.status(500).json({ message: 'Server error updating role' });
+  }
+});
+
+// Update a role's permissions
+router.put('/roles/:roleId/permissions', authenticateToken, authorize(['Manage Roles']), async (req, res) => {
+  const { roleId } = req.params;
+  const { permissionIds } = req.body; // Array of permission IDs
+
+  if (!Array.isArray(permissionIds)) {
+    return res.status(400).json({ message: 'permissionIds must be an array.' });
+  }
+
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    // 1. Delete existing permissions for the role
+    await connection.query('DELETE FROM role_permissions WHERE role_id = ?', [roleId]);
+
+    // 2. Insert new permissions
+    if (permissionIds.length > 0) {
+      const values = permissionIds.map((permId) => [roleId, permId]);
+      await connection.query(
+        'INSERT INTO role_permissions (role_id, permission_id) VALUES ?',
+        [values]
+      );
+    }
+
+    await connection.commit();
+    res.status(200).json({ message: 'Role permissions updated successfully.' });
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error('Error updating role permissions:', error);
+    res.status(500).json({ message: 'Server error updating role permissions' });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// Delete a role
+router.delete('/roles/:roleId', authenticateToken, authorize(['Manage Roles']), async (req, res) => {
+  const { roleId } = req.params;
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    // First, set role_id to NULL for any users assigned to this role
+    await connection.query('UPDATE users SET role_id = NULL WHERE role_id = ?', [roleId]);
+
+    // Then, delete the role from the roles table (role_permissions will cascade delete)
+    const [result] = await connection.query('DELETE FROM roles WHERE id = ?', [roleId]);
+
+    if (result.affectedRows === 0) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Role not found.' });
+    }
+
+    await connection.commit();
+    res.status(200).json({ message: 'Role deleted successfully.' });
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error('Error deleting role:', error);
+    res.status(500).json({ message: 'Server error deleting role' });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
 module.exports = router;

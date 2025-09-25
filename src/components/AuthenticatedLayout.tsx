@@ -19,8 +19,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Settings, LogOut, CreditCard } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
-import { Users, Briefcase, UserCheck, CalendarCheck, BarChart2, Building2, DollarSign } from "lucide-react"; // Import new icons
+import { useAuth } from "@/context/AuthContext";
+import { Users, Briefcase, UserCheck, CalendarCheck, BarChart2, Building2, DollarSign, Shield } from "lucide-react"; // Import new icons, added Shield for roles
 
 interface AuthenticatedLayoutProps {
   children: React.ReactNode;
@@ -93,6 +93,15 @@ const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ children }) =
                 <NavigationMenuLink asChild>
                   <Link to="/users" className="px-4 py-2 hover:bg-gray-100 rounded-md flex items-center">
                     <Users className="mr-2 h-4 w-4" /> User Management
+                  </Link>
+                </NavigationMenuLink>
+              </NavigationMenuItem>
+            )}
+            {hasPermission('Manage Roles') && ( // New navigation item for Role Management
+              <NavigationMenuItem>
+                <NavigationMenuLink asChild>
+                  <Link to="/roles" className="px-4 py-2 hover:bg-gray-100 rounded-md flex items-center">
+                    <Shield className="mr-2 h-4 w-4" /> Role Management
                   </Link>
                 </NavigationMenuLink>
               </NavigationMenuItem>

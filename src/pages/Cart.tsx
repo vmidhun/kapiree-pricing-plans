@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Trash2, Plus, Minus } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AuthModal } from "@/components/AuthModal";
-import { useAuth } from "@/hooks/use-auth"; // Import useAuth hook
+import { useAuth } from "@/context/AuthContext"; // Import useAuth hook
 
 interface CartItem {
   id: string;
