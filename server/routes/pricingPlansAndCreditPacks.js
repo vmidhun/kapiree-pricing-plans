@@ -9,7 +9,7 @@ const { authenticateToken, authorize } = require('../middleware/auth'); // Assum
 // Get all pricing plans (unauthenticated for portal, authenticated for admin)
 router.get('/pricing-plans', async (req, res) => {
     try {
-        const [rows] = await db.query('SELECT * FROM plans');
+        const [rows] = await db.query('SELECT * FROM plans WHERE is_active = TRUE');
         res.json(rows);
     } catch (error) {
         console.error('Error fetching pricing plans:', error);
@@ -71,13 +71,13 @@ router.put('/pricing-plans/:id', authenticateToken, authorize(['Manage Pricing P
 router.delete('/pricing-plans/:id', authenticateToken, authorize(['Manage Pricing Plans']), async (req, res) => {
     const { id } = req.params;
     try {
-        const [result] = await db.query('DELETE FROM plans WHERE id = ?', [id]);
+        const [result] = await db.query('UPDATE plans SET is_active = FALSE WHERE id = ?', [id]);
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: 'Pricing plan not found' });
         }
-        res.json({ message: 'Pricing plan deleted successfully' });
+        res.json({ message: 'Pricing plan marked as inactive successfully' });
     } catch (error) {
-        console.error('Error deleting pricing plan:', error);
+        console.error('Error marking pricing plan as inactive:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });

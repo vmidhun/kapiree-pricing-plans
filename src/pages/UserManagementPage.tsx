@@ -16,6 +16,7 @@ interface User {
   role_name: string;
   role_id: string;
   credits: number;
+  company_id: string | null; // Added company_id
   created_at: string;
 }
 
@@ -26,7 +27,7 @@ interface Role {
 }
 
 const UserManagementPage: React.FC = () => {
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth(); // Destructure user from useAuth
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,7 +65,18 @@ const UserManagementPage: React.FC = () => {
         api.get<{ roles: Role[] }>('/api/auth/roles'),
       ]);
       setUsers(usersResponse.data.users);
-      setRoles(rolesResponse.data.roles);
+
+      // Filter roles based on the current user's role
+      if (user?.role === 'Tenant Admin') {
+        // Tenant Admins can only assign 'Tenant Admin' and 'Recruiter' roles
+        const filteredRoles = rolesResponse.data.roles.filter(
+          (role) => role.name === 'Tenant Admin' || role.name === 'Recruiter'
+        );
+        setRoles(filteredRoles);
+      } else {
+        // Super Admins can assign all roles
+        setRoles(rolesResponse.data.roles);
+      }
     } catch (err) {
       console.error('Failed to fetch users or roles:', err);
       setError('Failed to load user data or roles.');

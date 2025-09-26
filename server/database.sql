@@ -12,6 +12,14 @@ CREATE TABLE IF NOT EXISTS users (
     FOREIGN KEY (company_id) REFERENCES Companies(id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS Companies (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(255) UNIQUE NOT NULL,
+    admin_user_id VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL, -- User who is the admin of this company/tenant
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS plans (
     id VARCHAR(36) PRIMARY KEY,
     name VARCHAR(255) UNIQUE NOT NULL,
@@ -19,9 +27,11 @@ CREATE TABLE IF NOT EXISTS plans (
     price DECIMAL(10, 2) NOT NULL,
     currency VARCHAR(3) DEFAULT 'USD',
     `interval` VARCHAR(50) NOT NULL, -- e.g., 'month', 'year'
+    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
 
 CREATE TABLE IF NOT EXISTS features (
     id VARCHAR(36) PRIMARY KEY,
@@ -110,11 +120,47 @@ CREATE TABLE IF NOT EXISTS transactions (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- New Tables for Role-Based Access Control (RBAC)
+
+CREATE TABLE IF NOT EXISTS roles (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(255) UNIQUE NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS permissions (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(255) UNIQUE NOT NULL, -- e.g., 'jobs:view', 'users:manage'
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS role_permissions (
+    role_id VARCHAR(36) NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    permission_id VARCHAR(36) NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
+    PRIMARY KEY (role_id, permission_id)
+);
+
+-- Table for Password Reset Tokens
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token VARCHAR(255) UNIQUE NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Initial Data for Plans
-INSERT IGNORE INTO plans (id, name, description, price, currency, `interval`) VALUES
-('plan_basic', 'Basic Plan', 'Essential features for everyday use.', 9.99, 'USD', 'month'),
-('plan_pro', 'Pro Plan', 'Advanced features for power users.', 29.99, 'USD', 'month'),
-('plan_premium', 'Premium Plan', 'All features, top-tier support.', 99.99, 'USD', 'year');
+INSERT IGNORE INTO plans (id, name, description, price, currency, `interval`, is_active) VALUES
+('plan_basic', 'Basic Plan', 'Essential features for everyday use.', 9.99, 'USD', 'month', TRUE),
+('plan_pro', 'Pro Plan', 'Advanced features for power users.', 29.99, 'USD', 'month', TRUE),
+('plan_premium', 'Premium Plan', 'All features, top-tier support.', 99.99, 'USD', 'year', TRUE);
+
+-- Ensure default plans are active
+UPDATE plans SET is_active = TRUE WHERE id IN ('plan_basic', 'plan_pro', 'plan_premium');
 
 -- Initial Data for Features
 INSERT IGNORE INTO features (id, name, description) VALUES
@@ -148,30 +194,6 @@ INSERT IGNORE INTO add_ons_definition (id, name, description, price, currency, `
 ('ao_priority_support', 'Priority Support Add-on', 'Get 24/7 priority support.', 10.00, 'USD', 'month'),
 ('ao_extra_storage_50gb', 'Extra 50GB Storage', 'Additional 50GB cloud storage.', 5.00, 'USD', 'month'),
 ('ao_custom_branding', 'Custom Branding', 'Remove "Powered by" and add your logo.', 15.00, 'USD', 'month');
-
--- New Tables for Role-Based Access Control (RBAC)
-
-CREATE TABLE IF NOT EXISTS roles (
-    id VARCHAR(36) PRIMARY KEY,
-    name VARCHAR(255) UNIQUE NOT NULL,
-    description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS permissions (
-    id VARCHAR(36) PRIMARY KEY,
-    name VARCHAR(255) UNIQUE NOT NULL, -- e.g., 'jobs:view', 'users:manage'
-    description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS role_permissions (
-    role_id VARCHAR(36) NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
-    permission_id VARCHAR(36) NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
-    PRIMARY KEY (role_id, permission_id)
-);
 
 -- Initial Data for Roles
 INSERT IGNORE INTO roles (id, name, description) VALUES
@@ -254,9 +276,9 @@ INSERT IGNORE INTO role_permissions (role_id, permission_id) VALUES
 ('role_recruiter', 'perm_jobs:edit'),
 ('role_recruiter', 'perm_candidates:view'),
 ('role_recruiter', 'perm_candidates:edit'),
-('role_recruiter', 'perm_interviews:schedule'),
-('role_recruiter', 'perm_interviews:conduct'),
-('role_recruiter', 'perm_interviews:review');
+('perm_interviews:schedule', 'Schedule Interviews', 'Allows scheduling video interviews.'),
+('perm_interviews:conduct', 'Conduct Interviews', 'Allows conducting live video interviews.'),
+('perm_interviews:review', 'Review Interviews', 'Allows reviewing recorded interviews and providing feedback.');
 
 -- Hiring Manager Role Permissions
 INSERT IGNORE INTO role_permissions (role_id, permission_id) VALUES
@@ -268,12 +290,3 @@ INSERT IGNORE INTO role_permissions (role_id, permission_id) VALUES
 -- Candidate Role Permissions (minimal access)
 INSERT IGNORE INTO role_permissions (role_id, permission_id) VALUES
 ('role_candidate', 'perm_dashboard:view'); -- Can view their own dashboard/applications
-
--- Table for Password Reset Tokens
-CREATE TABLE IF NOT EXISTS password_reset_tokens (
-    id VARCHAR(36) PRIMARY KEY,
-    user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    token VARCHAR(255) UNIQUE NOT NULL,
-    expires_at TIMESTAMP NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);

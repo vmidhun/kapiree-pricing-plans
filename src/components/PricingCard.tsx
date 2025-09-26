@@ -4,6 +4,7 @@ import { Check } from "lucide-react";
 interface PricingCardProps {
   planName: string;
   price: string;
+  currency: string;
   interval: string;
   features: string[];
   isPopular?: boolean;
@@ -14,6 +15,7 @@ interface PricingCardProps {
 export const PricingCard = ({
   planName,
   price,
+  currency,
   interval,
   features,
   isPopular = false,
@@ -37,7 +39,7 @@ export const PricingCard = ({
         <h3 className="text-2xl font-bold text-foreground mb-2">{planName}</h3>
         <div className="mb-4">
           <span className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            {price}
+            {currency}{price}
           </span>
         </div>
         <p className="text-muted-foreground">{interval}</p>

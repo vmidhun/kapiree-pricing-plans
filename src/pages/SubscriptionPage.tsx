@@ -220,14 +220,6 @@ const SubscriptionPage = () => {
     handleAction(`${credits} Credits`, amount, "payment");
   };
 
-  const basePlanFeatures = [ // Define basePlanFeatures here for use in PricingCard
-    "10 credits per month (valid for 1 month)",
-    "6 months video storage for all interviews",
-    "Request and conduct video interviews",
-    "Record & review interview sessions",
-    "Candidate notes & evaluation tools"
-  ];
-
   const handlePurchasePlan = (planId: string, planName: string, price: string, currency: string, interval: string) => {
     handleAction(planName, price, "subscription");
   };
@@ -516,63 +508,61 @@ const SubscriptionPage = () => {
           <TabsContent value="plans-addons">
             <PricingHero />
 
-            {/* Main Pricing Section - 2 Column Layout */}
+            {/* Main Content Grid for Plans and Credit Packs */}
             <section className="py-12 px-6">
               <div className="max-w-6xl mx-auto">
-                <div className="grid lg:grid-cols-2 gap-8 items-start">
-                  {/* Left Column - Base Plan */}
-                  <div className="flex justify-center lg:justify-end">
-                    <div className="w-full max-w-md">
-                      {availablePlans.length > 0 && (
-                        <PricingCard
-                          planName={availablePlans[0].name} // Assuming the first plan is the base plan
-                          price={`${availablePlans[0].currency}${availablePlans[0].price}`}
-                          interval={availablePlans[0].interval}
-                          features={basePlanFeatures} // Using the defined basePlanFeatures
-                          isPopular={true}
-                          buttonText={getPlanButtonText()}
-                          onAction={() => handlePurchasePlan(availablePlans[0].id, availablePlans[0].name, availablePlans[0].price, availablePlans[0].currency, availablePlans[0].interval)}
+                {/* Use a grid to lay out plans and credit packs */}
+                <div className="grid lg:grid-cols-3 gap-8 items-start">
+
+                  {/* Pricing Plans Section */}
+                  {availablePlans.map((plan, index) => (
+                    <PricingCard
+                      key={plan.id}
+                      planName={plan.name}
+                      price={plan.price} // Price is already a string like "10"
+                      currency={plan.currency}
+                      interval={plan.interval}
+                      features={plan.features.map(f => `${f.name}: ${f.description}`)} // Map features to string array
+                      isPopular={index === 0} // Assume the first plan is the most popular
+                      buttonText={getPlanButtonText()}
+                      onAction={() => handlePurchasePlan(plan.id, plan.name, plan.price, plan.currency, plan.interval)}
+                    />
+                  ))}
+
+                  {/* Credit Packs Section - Placed in its own column */}
+                  <div className="lg:col-span-1"> {/* This div will hold the Credit Packs */}
+                    <div className="text-center mb-6">
+                      <h2 className="text-2xl font-bold mb-2">
+                        <span className="bg-gradient-primary bg-clip-text text-transparent">
+                          Credit Packs
+                        </span>
+                      </h2>
+                      <p className="text-muted-foreground">
+                        1 video session = 1 credit
+                      </p>
+                    </div>
+                    <div className="space-y-4">
+                      {availableCreditPacks.map((pack) => (
+                        <CreditCard
+                          key={pack.id}
+                          credits={pack.credits_amount}
+                          price={pack.price} // Pass price separately
+                          currency={pack.currency} // Pass currency separately
+                          validity={pack.validity_days ? `${pack.validity_days} days` : "N/A"}
+                          onPurchase={() => {
+                            setSelectedCreditPack(pack);
+                            setShowPurchaseCreditModal(true);
+                          }}
+                          showBuyButton={!!subscription}
                         />
-                      )}
+                      ))}
                     </div>
                   </div>
+                </div> {/* Closing div for grid */}
+              </div> {/* Closing div for max-w-6xl */}
+            </section> {/* Closing section */}
 
-                  {/* Right Column - Credit Packs */}
-                  <div className="flex justify-center lg:justify-start">
-                    <div className="w-full max-w-md">
-                      <div className="text-center mb-6">
-                        <h2 className="text-2xl font-bold mb-2">
-                          <span className="bg-gradient-primary bg-clip-text text-transparent">
-                            Credit Packs
-                          </span>
-                        </h2>
-                        <p className="text-muted-foreground">
-                          1 video session = 1 credit
-                        </p>
-                      </div>
-
-                      <div className="space-y-4">
-                        {availableCreditPacks.map((pack) => (
-                          <CreditCard
-                            key={pack.id}
-                            credits={pack.credits_amount}
-                            price={`${pack.currency}${pack.price}`}
-                            validity={pack.validity_days ? `${pack.validity_days} days` : "N/A"}
-                            onPurchase={() => {
-                              setSelectedCreditPack(pack);
-                              setShowPurchaseCreditModal(true);
-                            }}
-                            showBuyButton={!!subscription}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <AddOns 
+            <AddOns
               onPurchaseAddOn={(addOnId) => {
                 const addOn = availableAddOns.find(a => a.id === addOnId);
                 if (addOn) {

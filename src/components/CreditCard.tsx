@@ -4,6 +4,7 @@ import { Clock, Zap } from "lucide-react";
 interface CreditCardProps {
   credits: number;
   price: string;
+  currency: string;
   validity: string;
   originalValue?: string;
   isPopular?: boolean;
@@ -14,6 +15,7 @@ interface CreditCardProps {
 export const CreditCard = ({
   credits,
   price,
+  currency,
   validity,
   originalValue,
   isPopular = false,
@@ -53,7 +55,7 @@ export const CreditCard = ({
         
         <div className="mb-3">
           <span className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            {price}
+            {currency}{price}
           </span>
           {originalValue && (
             <span className="text-muted-foreground line-through ml-2 text-sm">

@@ -21,9 +21,14 @@ const transporter = nodemailer.createTransport({
 });
 
 // Register User
-router.post('/register', async (req, res) => {
-  const { username, email, password } = req.body;
+// Register User (Super Admin only for now, to create users for specific tenants/roles)
+router.post('/register', authenticateToken, authorize(['Manage Users']), async (req, res) => {
+  const { username, email, password, role_id, company_id } = req.body;
   console.log('Registration request body:', req.body);
+
+  if (!username || !email || !password || !role_id || !company_id) {
+    return res.status(400).json({ message: 'Username, email, password, role_id, and company_id are required.' });
+  }
 
   let connection;
   try {
@@ -37,6 +42,21 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ message: 'User with this email already exists' });
     }
 
+    // Verify role_id exists
+    const [roleRows] = await connection.query('SELECT id, name FROM roles WHERE id = ?', [role_id]);
+    if (roleRows.length === 0) {
+      await connection.rollback();
+      return res.status(400).json({ message: 'Invalid role_id provided.' });
+    }
+    const roleName = roleRows[0].name;
+
+    // Verify company_id exists
+    const [companyRows] = await connection.query('SELECT id FROM companies WHERE id = ?', [company_id]);
+    if (companyRows.length === 0) {
+      await connection.rollback();
+      return res.status(400).json({ message: 'Invalid company_id provided.' });
+    }
+
     // Hash password
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(password, salt);
@@ -45,26 +65,9 @@ router.post('/register', async (req, res) => {
     const userId = uuidv4();
     console.log('Generated userId:', userId);
 
-    // Get 'Tenant Admin' role_id for new users
-    const [tenantAdminRole] = await connection.query('SELECT id FROM roles WHERE name = ?', ['Tenant Admin']);
-    const tenantAdminRoleId = tenantAdminRole.length > 0 ? tenantAdminRole[0].id : null;
-
-    if (!tenantAdminRoleId) {
-      await connection.rollback();
-      return res.status(500).json({ message: 'Tenant Admin role not found. Please ensure roles are initialized.' });
-    }
-
-    // Create a new company (tenant) for the user
-    const companyId = uuidv4();
-    const companyName = `${username}'s Company`; // Default company name
-    await connection.query(
-      'INSERT INTO companies (id, name, admin_user_id) VALUES (?, ?, ?)',
-      [companyId, companyName, userId]
-    );
-
-    // Save user to database with 'Tenant Admin' role and associated company_id
+    // Save user to database with specified role_id and company_id
     const insertQuery = 'INSERT INTO users (id, username, email, password_hash, role_id, company_id) VALUES (?, ?, ?, ?, ?, ?)';
-    const insertValues = [userId, username, email, password_hash, tenantAdminRoleId, companyId];
+    const insertValues = [userId, username, email, password_hash, role_id, company_id];
     console.log('Insert User Query:', insertQuery);
     console.log('Insert User Values:', insertValues);
     await connection.query(insertQuery, insertValues);
@@ -95,7 +98,7 @@ router.post('/register', async (req, res) => {
     const token = jwt.sign({ id: newUser.id, role: newUser.role_name, permissions, company_id: newUser.company_id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
     res.status(201).json({
-      message: 'User registered and tenant created successfully',
+      message: 'User registered successfully.',
       token,
       user: {
         id: newUser.id,
@@ -747,27 +750,42 @@ router.get('/permissions', authenticateToken, async (req, res) => {
   }
 });
 
-// Assign a role to a user (Admin-only)
+// Assign a role to a user (Admin-only, with tenant-wise filtering and role restrictions)
 router.post('/users/:userId/assign-role', authenticateToken, authorize(['Manage Users']), async (req, res) => {
   const { userId } = req.params;
   const { roleId } = req.body;
 
-  // Basic validation
   if (!roleId) {
     return res.status(400).json({ message: 'Role ID is required.' });
   }
 
   try {
-    // Verify role exists
-    const [roleExists] = await db.query('SELECT id FROM roles WHERE id = ?', [roleId]);
-    if (roleExists.length === 0) {
-      return res.status(404).json({ message: 'Role not found.' });
+    const { role: requesterRole, company_id: requesterCompanyId } = req.user;
+
+    // Verify target role exists and get its name
+    const [targetRoleRows] = await db.query('SELECT id, name FROM roles WHERE id = ?', [roleId]);
+    if (targetRoleRows.length === 0) {
+      return res.status(404).json({ message: 'Target role not found.' });
+    }
+    const targetRoleName = targetRoleRows[0].name;
+
+    // Tenant Admin cannot assign Super Admin or Tenant Admin roles
+    if (requesterRole !== 'Super Admin' && (targetRoleName === 'Super Admin' || targetRoleName === 'Tenant Admin')) {
+      return res.status(403).json({ message: 'Tenant Admins cannot assign Super Admin or Tenant Admin roles.' });
     }
 
-    // Verify user exists
-    const [userExists] = await db.query('SELECT id FROM users WHERE id = ?', [userId]);
-    if (userExists.length === 0) {
-      return res.status(404).json({ message: 'User not found.' });
+    // Verify target user exists and belongs to the same company if requester is not Super Admin
+    let userQuery = 'SELECT id, company_id FROM users WHERE id = ?';
+    const userQueryParams = [userId];
+
+    if (requesterRole !== 'Super Admin') {
+      userQuery += ' AND company_id = ?';
+      userQueryParams.push(requesterCompanyId);
+    }
+
+    const [userRows] = await db.query(userQuery, userQueryParams);
+    if (userRows.length === 0) {
+      return res.status(404).json({ message: 'User not found or not authorized to assign role to this user.' });
     }
 
     // Assign role to user
@@ -776,22 +794,32 @@ router.post('/users/:userId/assign-role', authenticateToken, authorize(['Manage 
       [roleId, userId]
     );
 
-    res.status(200).json({ message: `Role ${roleId} assigned to user ${userId} successfully.` });
+    res.status(200).json({ message: `Role ${targetRoleName} assigned to user ${userId} successfully.` });
   } catch (error) {
     console.error('Error assigning role:', error);
     res.status(500).json({ message: 'Server error assigning role' });
   }
 });
 
-// Get all users (Admin-only)
+// Get all users (Admin-only, with tenant-wise filtering)
 router.get('/users', authenticateToken, authorize(['Manage Users']), async (req, res) => {
   try {
-    const [users] = await db.query(
-      `SELECT u.id, u.username, u.email, u.credits, r.name as role_name, r.id as role_id, u.created_at
-       FROM users u
-       LEFT JOIN roles r ON u.role_id = r.id
-       ORDER BY u.created_at DESC`
-    );
+    const { role, company_id } = req.user;
+    let query = `
+      SELECT u.id, u.username, u.email, u.credits, r.name as role_name, r.id as role_id, u.company_id, u.created_at
+      FROM users u
+      LEFT JOIN roles r ON u.role_id = r.id
+    `;
+    const queryParams = [];
+
+    if (role !== 'Super Admin') {
+      query += ` WHERE u.company_id = ?`;
+      queryParams.push(company_id);
+    }
+
+    query += ` ORDER BY u.created_at DESC`;
+
+    const [users] = await db.query(query, queryParams);
     res.status(200).json({ users });
   } catch (error) {
     console.error('Error fetching users:', error);
@@ -799,19 +827,27 @@ router.get('/users', authenticateToken, authorize(['Manage Users']), async (req,
   }
 });
 
-// Get a single user by ID (Admin-only)
+// Get a single user by ID (Admin-only, with tenant-wise filtering)
 router.get('/users/:userId', authenticateToken, authorize(['Manage Users']), async (req, res) => {
   const { userId } = req.params;
   try {
-    const [userRows] = await db.query(
-      `SELECT u.id, u.username, u.email, u.credits, r.name as role_name, r.id as role_id, u.created_at
-       FROM users u
-       LEFT JOIN roles r ON u.role_id = r.id
-       WHERE u.id = ?`,
-      [userId]
-    );
+    const { role, company_id } = req.user;
+    let query = `
+      SELECT u.id, u.username, u.email, u.credits, r.name as role_name, r.id as role_id, u.company_id, u.created_at
+      FROM users u
+      LEFT JOIN roles r ON u.role_id = r.id
+      WHERE u.id = ?
+    `;
+    const queryParams = [userId];
+
+    if (role !== 'Super Admin') {
+      query += ` AND u.company_id = ?`;
+      queryParams.push(company_id);
+    }
+
+    const [userRows] = await db.query(query, queryParams);
     if (userRows.length === 0) {
-      return res.status(404).json({ message: 'User not found.' });
+      return res.status(404).json({ message: 'User not found or not authorized to view this user.' });
     }
     res.status(200).json({ user: userRows[0] });
   } catch (error) {
@@ -820,7 +856,7 @@ router.get('/users/:userId', authenticateToken, authorize(['Manage Users']), asy
   }
 });
 
-// Update a user's details (Admin-only)
+// Update a user's details (Admin-only, with tenant-wise filtering)
 router.put('/users/:userId', authenticateToken, authorize(['Manage Users']), async (req, res) => {
   const { userId } = req.params;
   const { username, email, roleId } = req.body; // Allow updating username, email, and role
@@ -830,16 +866,33 @@ router.put('/users/:userId', authenticateToken, authorize(['Manage Users']), asy
   }
 
   try {
+    const { role, company_id } = req.user;
+
     // Verify role exists
-    const [roleExists] = await db.query('SELECT id FROM roles WHERE id = ?', [roleId]);
-    if (roleExists.length === 0) {
+    const [roleRows] = await db.query('SELECT id, name FROM roles WHERE id = ?', [roleId]);
+    if (roleRows.length === 0) {
       return res.status(404).json({ message: 'Role not found.' });
     }
+    const newRoleName = roleRows[0].name;
 
-    await db.query(
-      'UPDATE users SET username = ?, email = ?, role_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [username, email, roleId, userId]
-    );
+    // Tenant Admin cannot assign Super Admin or Tenant Admin roles
+    if (role !== 'Super Admin' && (newRoleName === 'Super Admin' || newRoleName === 'Tenant Admin')) {
+      return res.status(403).json({ message: 'Tenant Admins cannot assign Super Admin or Tenant Admin roles.' });
+    }
+
+    let query = 'UPDATE users SET username = ?, email = ?, role_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?';
+    const queryParams = [username, email, roleId, userId];
+
+    if (role !== 'Super Admin') {
+      query += ' AND company_id = ?';
+      queryParams.push(company_id);
+    }
+
+    const [result] = await db.query(query, queryParams);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'User not found or not authorized to update this user.' });
+    }
 
     res.status(200).json({ message: 'User updated successfully.' });
   } catch (error) {
@@ -848,11 +901,25 @@ router.put('/users/:userId', authenticateToken, authorize(['Manage Users']), asy
   }
 });
 
-// Delete a user (Admin-only)
+// Delete a user (Admin-only, with tenant-wise filtering)
 router.delete('/users/:userId', authenticateToken, authorize(['Manage Users']), async (req, res) => {
   const { userId } = req.params;
   try {
-    await db.query('DELETE FROM users WHERE id = ?', [userId]);
+    const { role, company_id } = req.user;
+    let query = 'DELETE FROM users WHERE id = ?';
+    const queryParams = [userId];
+
+    if (role !== 'Super Admin') {
+      query += ' AND company_id = ?';
+      queryParams.push(company_id);
+    }
+
+    const [result] = await db.query(query, queryParams);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'User not found or not authorized to delete this user.' });
+    }
+
     res.status(200).json({ message: 'User deleted successfully.' });
   } catch (error) {
     console.error('Error deleting user:', error);

@@ -93,7 +93,7 @@ const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ children }) =
                 </NavigationMenuLink>
               </NavigationMenuItem>
             )}
-            {hasPermission('Manage Tenants') && (
+            {user?.role === 'Super Admin' && hasPermission('Manage Tenants') && (
               <NavigationMenuItem>
                 <NavigationMenuLink asChild>
                   <Link to="/tenants" className="px-4 py-2 hover:bg-gray-100 rounded-md flex items-center">
@@ -111,7 +111,7 @@ const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ children }) =
                 </NavigationMenuLink>
               </NavigationMenuItem>
             )}
-            {hasPermission('Manage Pricing Plans') && (
+            {user?.role === 'Super Admin' && hasPermission('Manage Pricing Plans') && (
               <NavigationMenuItem>
                 <NavigationMenuLink asChild>
                   <Link to="/pricing-management" className="px-4 py-2 hover:bg-gray-100 rounded-md flex items-center">

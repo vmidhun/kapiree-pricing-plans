@@ -37,9 +37,10 @@ export interface PricingPlan {
   id: string;
   name: string;
   description: string;
-  price: number;
+  price: string;
   currency: string;
   interval: string;
+  is_active?: boolean; // Added for soft delete
   created_at: string;
   updated_at: string;
 }
@@ -49,7 +50,7 @@ export interface CreditPackDefinition {
   name: string;
   description: string;
   credits_amount: number;
-  price: number;
+  price: string;
   currency: string;
   validity_days: number | null;
   created_at: string;
@@ -180,6 +181,17 @@ export const api = {
     api.post<{ message: string }>("/api/auth/forgot-password", { email }),
   resetPassword: (token: string, newPassword: string) =>
     api.post<{ message: string }>("/api/auth/reset-password", { token, newPassword }),
+
+  // User Management APIs (Admin-only, with tenant-wise filtering)
+  registerUser: (username: string, email: string, password: string, role_id: string, company_id: string) =>
+    api.post<{ message: string; token: string; user: User }>("/api/auth/register", { username, email, password, role_id, company_id }),
+  getUsers: () => api.get<User[]>("/api/auth/users"),
+  getUserById: (userId: string) => api.get<User>(`/api/auth/users/${userId}`),
+  updateUser: (userId: string, data: { username?: string; email?: string; roleId?: string }) =>
+    api.put<{ message: string }>(`/api/auth/users/${userId}`, data),
+  deleteUser: (userId: string) => api.delete<{ message: string }>(`/api/auth/users/${userId}`),
+  assignRoleToUser: (userId: string, roleId: string) =>
+    api.post<{ message: string }>(`/api/auth/users/${userId}/assign-role`, { roleId }),
 
   // Pricing Plans API
   getPricingPlans: () => api.get<PricingPlan[]>("/api/pricing-plans"),
