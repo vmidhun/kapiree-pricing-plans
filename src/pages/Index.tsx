@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"; // Added useEffect
+import { useState } from "react"; // Removed useEffect, keeping useState for pendingCartAction
 import { PricingHero } from "@/components/PricingHero";
 import { PricingCard } from "@/components/PricingCard";
 import { CreditCard } from "@/components/CreditCard";
@@ -6,21 +6,25 @@ import { StoragePolicy } from "@/components/StoragePolicy";
 import { AddOns } from "@/components/AddOns";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { AuthModal } from "@/components/AuthModal";
-import { Button } from "@/components/ui/button";
+// Removed AuthModal import
+// Removed Button import
 import { useAuth } from "@/context/AuthContext"; // Import useAuth hook
+// Removed useLocation import
 
 const Index = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  // Removed isAuthModalOpen state
   const { isAuthenticated, isLoading } = useAuth();
   const [pendingCartAction, setPendingCartAction] = useState<{ plan: string; amount: string; type: string } | null>(null);
+
+  // Removed useEffect for /signin route
 
   const handleAction = (plan: string, amount: string, type: string) => {
     if (!isAuthenticated) {
       setPendingCartAction({ plan, amount, type });
-      setIsAuthModalOpen(true);
+      // Instead of opening a modal, navigate to the sign-in page
+      navigate("/signin");
       toast({
         title: "Authentication Required",
         description: "Please log in or sign up to proceed with your selection.",
@@ -51,11 +55,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="flex justify-end p-4">
-        {!isLoading && !isAuthenticated && ( // Conditionally render login button
-          <Button onClick={() => setIsAuthModalOpen(true)}>Login</Button>
-        )}
-      </header>
+      {/* Removed the internal header as UnauthenticatedLayout provides the main navigation */}
       <PricingHero />
       
       {/* Main Pricing Section - 2 Column Layout */}
@@ -116,19 +116,7 @@ const Index = () => {
       <AddOns />
       <StoragePolicy />
 
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        onSuccess={() => {
-          setIsAuthModalOpen(false);
-          if (pendingCartAction) {
-            navigate(`/cart?plan=${encodeURIComponent(pendingCartAction.plan)}&amount=${pendingCartAction.amount}&type=${pendingCartAction.type}`);
-            setPendingCartAction(null); // Clear pending action
-          } else {
-            navigate("/dashboard"); // Default to dashboard if no pending action
-          }
-        }}
-      />
+      {/* Removed AuthModal component */}
     </div>
   );
 };

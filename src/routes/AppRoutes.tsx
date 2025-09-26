@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import Index from "../pages/Index";
+import HomePortal from "../pages/HomePortal"; // Import the new HomePortal component
+import LoginPage from "../pages/LoginPage"; // Import the new LoginPage component
 import Cart from "../pages/Cart";
 import Renewal from "../pages/Renewal";
 import NotFound from "../pages/NotFound";
@@ -17,6 +19,7 @@ import TenantManagementPage from "../pages/TenantManagementPage";
 import ReportingAnalyticsPage from "../pages/ReportingAnalyticsPage";
 import PricingPlansManagementPage from "../pages/PricingPlansManagementPage";
 import AuthenticatedLayout from "../components/AuthenticatedLayout"; // Import AuthenticatedLayout
+import UnauthenticatedLayout from "../components/UnauthenticatedLayout"; // Import UnauthenticatedLayout
 import { useAuth } from "../context/AuthContext"; // Import useAuth hook from context
 
 // AuthRedirect component to handle redirection for logged-in users
@@ -36,9 +39,13 @@ const AuthRedirect = () => {
     return <div>Loading authentication...</div>; // Or a loading spinner/component
   }
 
-  // If not authenticated and not loading, render the Index page
+  // If not authenticated and not loading, render the HomePortal page within the UnauthenticatedLayout
   if (!isAuthenticated) {
-    return <Index />;
+    return (
+      <UnauthenticatedLayout>
+        <HomePortal />
+      </UnauthenticatedLayout>
+    );
   }
 
   // If authenticated, but useEffect hasn't redirected yet, show a loading state
@@ -71,6 +78,8 @@ const AppRoutes = () => {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<AuthRedirect />} /> {/* Use AuthRedirect for the root path */}
+        <Route path="/pricing" element={<UnauthenticatedLayout><Index /></UnauthenticatedLayout>} /> {/* Public pricing page, using the original Index page */}
+        <Route path="/signin" element={<LoginPage />} /> {/* Dedicated login page */}
         <Route path="/cart" element={<Cart />} />
         <Route path="/renewal" element={<Renewal />} />
         <Route path="/checkout" element={<MockStripeCheckout />} />

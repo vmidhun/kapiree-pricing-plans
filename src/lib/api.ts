@@ -8,6 +8,54 @@ interface RequestOptions {
   body?: unknown;
 }
 
+// Define Tenant interface
+export interface Tenant {
+  id: string;
+  name: string;
+  admin_user_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Define User interface for API responses
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+  credits: number;
+  role: string;
+  permissions: string[];
+  company_id: string | null;
+}
+
+// Define API response interface for fetching multiple tenants
+export interface TenantsResponse {
+  tenants: Tenant[];
+}
+
+export interface PricingPlan {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  currency: string;
+  interval: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreditPackDefinition {
+  id: string;
+  name: string;
+  description: string;
+  credits_amount: number;
+  price: number;
+  currency: string;
+  validity_days: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 const getToken = (): string | null => {
   return localStorage.getItem("authToken");
 };
@@ -103,4 +151,22 @@ export const api = {
     apiFetch<{ data: T }>(path, { method: "PUT", headers, body }),
   delete: <T = unknown>(path: string, headers?: Record<string, string>) =>
     apiFetch<{ data: T }>(path, { method: "DELETE", headers }),
+
+  // Pricing Plans API
+  getPricingPlans: () => api.get<PricingPlan[]>("/api/pricing-plans"),
+  getPricingPlanById: (id: string) => api.get<PricingPlan>(`/api/pricing-plans/${id}`),
+  createPricingPlan: (data: Omit<PricingPlan, "id" | "created_at" | "updated_at">) =>
+    api.post<PricingPlan>("/api/pricing-plans", data),
+  updatePricingPlan: (id: string, data: Partial<Omit<PricingPlan, "id" | "created_at" | "updated_at">>) =>
+    api.put<PricingPlan>(`/api/pricing-plans/${id}`, data),
+  deletePricingPlan: (id: string) => api.delete<void>(`/api/pricing-plans/${id}`),
+
+  // Credit Packs API
+  getCreditPacks: () => api.get<CreditPackDefinition[]>("/api/credit-packs"),
+  getCreditPackById: (id: string) => api.get<CreditPackDefinition>(`/api/credit-packs/${id}`),
+  createCreditPack: (data: Omit<CreditPackDefinition, "id" | "created_at" | "updated_at">) =>
+    api.post<CreditPackDefinition>("/api/credit-packs", data),
+  updateCreditPack: (id: string, data: Partial<Omit<CreditPackDefinition, "id" | "created_at" | "updated_at">>) =>
+    api.put<CreditPackDefinition>(`/api/credit-packs/${id}`, data),
+  deleteCreditPack: (id: string) => api.delete<void>(`/api/credit-packs/${id}`),
 };

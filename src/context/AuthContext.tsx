@@ -7,6 +7,7 @@ interface User {
   credits: number;
   role: string;
   permissions: string[];
+  company_id: string | null; // Add company_id
 }
 
 interface AuthState {

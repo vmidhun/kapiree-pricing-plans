@@ -44,9 +44,12 @@ const RoleManagementPage: React.FC = () => {
     selectedPermissionIds: new Set<string>(),
   });
 
-  const canManageRoles = hasPermission('Manage Roles'); // New permission
+  const { user, isLoading: authLoading, isAuthenticated } = useAuth(); // Get user, authLoading, isAuthenticated
+  const canManageRoles = user?.permissions?.includes('Manage Roles') || false; // Directly check permission from user object
 
   const fetchRolesAndPermissions = useCallback(async () => {
+    if (!isAuthenticated || authLoading) return; // Only fetch if authenticated and not loading auth
+
     setLoading(true);
     setError(null);
     try {
@@ -80,18 +83,18 @@ const RoleManagementPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAuthenticated, authLoading]); // Add isAuthenticated and authLoading to dependencies
 
   useEffect(() => {
-    if (canManageRoles) {
+    if (!authLoading && isAuthenticated && canManageRoles) {
       fetchRolesAndPermissions();
-    } else {
+    } else if (!authLoading && (!isAuthenticated || !canManageRoles)) {
       setLoading(false);
       setError('You do not have permission to manage roles.');
       setRoles([]);
       setAllPermissions([]);
     }
-  }, [canManageRoles, fetchRolesAndPermissions]);
+  }, [authLoading, isAuthenticated, canManageRoles, fetchRolesAndPermissions]);
 
   const handleEditRoleClick = (role: Role) => {
     setCurrentRole(role);

@@ -1,31 +1,26 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const mysql = require('mysql2/promise');
+const db = require('../database'); // Import the database connection pool
 const { v4: uuidv4 } = require('uuid'); // Import uuid
 const { authenticateToken, authorize } = require('../middleware/auth'); // Import authorize
 
 const router = express.Router();
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: process.env.DB_PORT,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-});
 
 // Register User
 router.post('/register', async (req, res) => {
   const { username, email, password } = req.body;
-  console.log('Registration request body:', req.body); // New logging
+  console.log('Registration request body:', req.body);
 
+  let connection;
   try {
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
     // Check if user already exists
-    const [userExists] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
+    const [userExists] = await connection.query('SELECT * FROM users WHERE email = ?', [email]);
     if (userExists.length > 0) {
+      await connection.rollback();
       return res.status(400).json({ message: 'User with this email already exists' });
     }
 
@@ -35,22 +30,38 @@ router.post('/register', async (req, res) => {
 
     // Generate a UUID for the new user
     const userId = uuidv4();
-    console.log('Generated userId:', userId); // Debugging line
+    console.log('Generated userId:', userId);
 
-    // Get default role_id for new users (e.g., 'recruiter')
-    const [defaultRole] = await pool.query('SELECT id FROM roles WHERE name = ?', ['Recruiter']);
-    const defaultRoleId = defaultRole.length > 0 ? defaultRole[0].id : null;
+    // Get 'Tenant Admin' role_id for new users
+    const [tenantAdminRole] = await connection.query('SELECT id FROM roles WHERE name = ?', ['Tenant Admin']);
+    const tenantAdminRoleId = tenantAdminRole.length > 0 ? tenantAdminRole[0].id : null;
 
-    // Save user to database with default role
-    const insertQuery = 'INSERT INTO users (id, username, email, password_hash, role_id) VALUES (?, ?, ?, ?, ?)';
-    const insertValues = [userId, username, email, password_hash, defaultRoleId];
-    console.log('Insert Query:', insertQuery); // Debugging line
-    console.log('Insert Values:', insertValues); // Debugging line
-    await pool.query(insertQuery, insertValues);
+    if (!tenantAdminRoleId) {
+      await connection.rollback();
+      return res.status(500).json({ message: 'Tenant Admin role not found. Please ensure roles are initialized.' });
+    }
 
-    // Get the inserted user with their role
-    const [newUserRows] = await pool.query(
-      `SELECT u.id, u.username, u.email, u.credits, r.name as role_name, r.id as role_id
+    // Create a new company (tenant) for the user
+    const companyId = uuidv4();
+    const companyName = `${username}'s Company`; // Default company name
+    await connection.query(
+      'INSERT INTO companies (id, name, admin_user_id) VALUES (?, ?, ?)',
+      [companyId, companyName, userId]
+    );
+
+    // Save user to database with 'Tenant Admin' role and associated company_id
+    const insertQuery = 'INSERT INTO users (id, username, email, password_hash, role_id, company_id) VALUES (?, ?, ?, ?, ?, ?)';
+    const insertValues = [userId, username, email, password_hash, tenantAdminRoleId, companyId];
+    console.log('Insert User Query:', insertQuery);
+    console.log('Insert User Values:', insertValues);
+    await connection.query(insertQuery, insertValues);
+
+    // Commit transaction
+    await connection.commit();
+
+    // Get the inserted user with their role and company_id
+    const [newUserRows] = await db.query(
+      `SELECT u.id, u.username, u.email, u.credits, r.name as role_name, r.id as role_id, u.company_id
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
        WHERE u.id = ?`,
@@ -59,7 +70,7 @@ router.post('/register', async (req, res) => {
     const newUser = newUserRows[0];
 
     // Fetch permissions for the new user's role
-    const [permissionsRows] = await pool.query(
+    const [permissionsRows] = await db.query(
       `SELECT p.name FROM permissions p
        JOIN role_permissions rp ON p.id = rp.permission_id
        WHERE rp.role_id = ?`,
@@ -67,11 +78,11 @@ router.post('/register', async (req, res) => {
     );
     const permissions = permissionsRows.map((row) => row.name);
 
-    // Generate JWT with user ID, role, and permissions
-    const token = jwt.sign({ id: newUser.id, role: newUser.role_name, permissions }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    // Generate JWT with user ID, role, permissions, and company_id
+    const token = jwt.sign({ id: newUser.id, role: newUser.role_name, permissions, company_id: newUser.company_id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
     res.status(201).json({
-      message: 'User registered successfully',
+      message: 'User registered and tenant created successfully',
       token,
       user: {
         id: newUser.id,
@@ -80,11 +91,15 @@ router.post('/register', async (req, res) => {
         credits: newUser.credits,
         role: newUser.role_name,
         permissions,
+        company_id: newUser.company_id,
       },
     });
   } catch (error) {
+    if (connection) await connection.rollback();
     console.error('Registration error:', error);
     res.status(500).json({ message: 'Server error during registration' });
+  } finally {
+    if (connection) connection.release();
   }
 });
 
@@ -93,9 +108,9 @@ router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // Check if user exists and get their role
-    const [userRows] = await pool.query(
-      `SELECT u.id, u.username, u.email, u.password_hash, u.credits, r.name as role_name, r.id as role_id
+    // Check if user exists and get their role and company_id
+    const [userRows] = await db.query(
+      `SELECT u.id, u.username, u.email, u.password_hash, u.credits, r.name as role_name, r.id as role_id, u.company_id
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
        WHERE u.email = ?`,
@@ -113,7 +128,7 @@ router.post('/login', async (req, res) => {
     }
 
     // Fetch permissions for the user's role
-    const [permissionsRows] = await pool.query(
+    const [permissionsRows] = await db.query(
       `SELECT p.name FROM permissions p
        JOIN role_permissions rp ON p.id = rp.permission_id
        WHERE rp.role_id = ?`,
@@ -121,8 +136,8 @@ router.post('/login', async (req, res) => {
     );
     const permissions = permissionsRows.map((row) => row.name);
 
-    // Generate JWT with user ID, role, and permissions
-    const token = jwt.sign({ id: user.id, role: user.role_name, permissions }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    // Generate JWT with user ID, role, permissions, and company_id
+    const token = jwt.sign({ id: user.id, role: user.role_name, permissions, company_id: user.company_id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
     res.status(200).json({
       message: 'Logged in successfully',
@@ -134,6 +149,7 @@ router.post('/login', async (req, res) => {
         credits: user.credits,
         role: user.role_name,
         permissions,
+        company_id: user.company_id,
       },
     });
   } catch (error) {
@@ -150,8 +166,8 @@ router.get('/profile', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'User ID not available in token.' });
     }
     console.log('Fetching profile for user ID:', req.user.id);
-    const [userRows] = await pool.query(
-      `SELECT u.id, u.username, u.email, u.credits, r.name as role_name, r.id as role_id
+    const [userRows] = await db.query(
+      `SELECT u.id, u.username, u.email, u.credits, r.name as role_name, r.id as role_id, u.company_id
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
        WHERE u.id = ?`,
@@ -159,13 +175,13 @@ router.get('/profile', authenticateToken, async (req, res) => {
     );
 
     if (userRows.length === 0) {
-      console.warn('Profile not found for user ID:', req.user.id); // Added logging
+      console.warn('Profile not found for user ID:', req.user.id);
       return res.status(404).json({ message: 'User not found' });
     }
     const user = userRows[0];
 
     // Fetch permissions for the user's role
-    const [permissionsRows] = await pool.query(
+    const [permissionsRows] = await db.query(
       `SELECT p.name FROM permissions p
        JOIN role_permissions rp ON p.id = rp.permission_id
        WHERE rp.role_id = ?`,
@@ -181,11 +197,12 @@ router.get('/profile', authenticateToken, async (req, res) => {
         credits: user.credits,
         role: user.role_name,
         permissions,
+        company_id: user.company_id,
       },
     });
   } catch (error) {
     console.error('Profile error:', error);
-    res.status(500).json({ message: 'Server error retrieving profile', error: error.message }); // Include error message
+    res.status(500).json({ message: 'Server error retrieving profile', error: error.message });
   }
 });
 
@@ -198,12 +215,12 @@ router.post('/update-credits', authenticateToken, async (req, res) => {
   }
 
   try {
-    await pool.query(
+    await db.query(
       'UPDATE users SET credits = credits + ? WHERE id = ?',
       [creditsToAdd, req.user.id]
     );
 
-    const [updatedUser] = await pool.query(
+    const [updatedUser] = await db.query(
       'SELECT id, username, email, credits FROM users WHERE id = ?',
       [req.user.id]
     );
@@ -235,7 +252,7 @@ router.get('/subscription', authenticateToken, async (req, res) => {
     const userId = req.user.id;
 
     // 1. Fetch user's current subscription
-    const [subscriptions] = await pool.query(
+    const [subscriptions] = await db.query(
       `SELECT s.id, s.status, s.start_date, s.end_date, s.auto_renew,
               p.id as plan_id, p.name as plan_name, p.description as plan_description, p.price, p.currency, p.interval
        FROM subscriptions s
@@ -250,7 +267,7 @@ router.get('/subscription', authenticateToken, async (req, res) => {
     if (subscriptions.length > 0) {
       currentSubscription = subscriptions[0];
       // Fetch features for the subscribed plan
-      const [features] = await pool.query(
+      const [features] = await db.query(
         `SELECT f.name, f.description
          FROM plan_features pf
          JOIN features f ON pf.feature_id = f.id
@@ -261,14 +278,14 @@ router.get('/subscription', authenticateToken, async (req, res) => {
     }
 
     // 2. Fetch user's credit balance
-    const [userCredits] = await pool.query(
+    const [userCredits] = await db.query(
       'SELECT credits FROM users WHERE id = ?',
       [userId]
     );
     const creditBalance = userCredits.length > 0 ? userCredits[0].credits : 0;
 
     // 3. Fetch user's active credit packs
-    const [creditPacks] = await pool.query(
+    const [creditPacks] = await db.query(
       `SELECT ucp.id, cpd.name, ucp.credits_remaining, cpd.credits_amount as total_credits, ucp.expiration_date
        FROM user_credit_packs ucp
        JOIN credit_packs_definition cpd ON ucp.credit_pack_def_id = cpd.id
@@ -277,7 +294,7 @@ router.get('/subscription', authenticateToken, async (req, res) => {
     );
 
     // 4. Fetch user's active add-ons
-    const [addOns] = await pool.query(
+    const [addOns] = await db.query(
       `SELECT uao.id, aod.name, aod.description
        FROM user_add_ons uao
        JOIN add_ons_definition aod ON uao.add_on_def_id = aod.id
@@ -286,7 +303,7 @@ router.get('/subscription', authenticateToken, async (req, res) => {
     );
 
     // 5. Fetch user's transaction history
-    const [transactionHistory] = await pool.query(
+    const [transactionHistory] = await db.query(
       `SELECT id, transaction_date as date, item_name, transaction_type, amount_paid, currency, status, invoice_url
        FROM transactions
        WHERE user_id = ?
@@ -321,25 +338,41 @@ router.get('/subscription', authenticateToken, async (req, res) => {
 
 router.post('/refresh', authenticateToken, async (req, res) => {
   try {
-    const [user] = await pool.query(
-      'SELECT id, username, email FROM users WHERE id = ?',
+    const [userRows] = await db.query(
+      `SELECT u.id, u.username, u.email, u.credits, r.name as role_name, r.id as role_id
+       FROM users u
+       LEFT JOIN roles r ON u.role_id = r.id
+       WHERE u.id = ?`,
       [req.user.id]
     );
 
-    if (user.length === 0) {
+    if (userRows.length === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
+    const user = userRows[0];
 
-    // Generate new token
-    const token = jwt.sign({ id: user[0].id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    // Fetch permissions for the user's role
+    const [permissionsRows] = await db.query(
+      `SELECT p.name FROM permissions p
+       JOIN role_permissions rp ON p.id = rp.permission_id
+       WHERE rp.role_id = ?`,
+      [user.role_id]
+    );
+    const permissions = permissionsRows.map((row) => row.name);
+
+    // Generate new token with role and permissions
+    const token = jwt.sign({ id: user.id, role: user.role_name, permissions }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
     res.status(200).json({
       message: 'Token refreshed successfully',
       token,
       user: {
-        id: user[0].id,
-        username: user[0].username,
-        email: user[0].email,
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        credits: user.credits,
+        role: user.role_name,
+        permissions,
       },
     });
   } catch (error) {
@@ -354,7 +387,7 @@ router.post('/subscription/renew', authenticateToken, async (req, res) => {
     const userId = req.user.id;
 
     // Find the current active subscription
-    const [subscriptions] = await pool.query(
+    const [subscriptions] = await db.query(
       `SELECT id, plan_id, end_date, \`interval\`
        FROM subscriptions
        WHERE user_id = ? AND status = 'active'
@@ -379,7 +412,7 @@ router.post('/subscription/renew', authenticateToken, async (req, res) => {
     }
 
     // Update the subscription end date and set auto_renew to true
-    await pool.query(
+    await db.query(
       `UPDATE subscriptions
        SET end_date = ?, auto_renew = TRUE, updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
@@ -387,7 +420,7 @@ router.post('/subscription/renew', authenticateToken, async (req, res) => {
     );
 
     // Fetch plan details for transaction record
-    const [planDetails] = await pool.query('SELECT name, price, currency FROM plans WHERE id = ?', [currentSubscription.plan_id]);
+    const [planDetails] = await db.query('SELECT name, price, currency FROM plans WHERE id = ?', [currentSubscription.plan_id]);
     if (planDetails.length === 0) {
       console.error('Plan details not found for renewal transaction:', currentSubscription.plan_id);
       return res.status(500).json({ message: 'Failed to record renewal transaction: Plan details missing.' });
@@ -396,7 +429,7 @@ router.post('/subscription/renew', authenticateToken, async (req, res) => {
 
     // Record the renewal transaction
     const transactionId = uuidv4();
-    await pool.query(
+    await db.query(
       `INSERT INTO transactions (id, user_id, item_type, item_id, item_name, transaction_type, amount_paid, currency, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [transactionId, userId, 'subscription', currentSubscription.id, plan.name, 'Renewal', plan.price, plan.currency, 'Completed']
@@ -415,7 +448,7 @@ router.post('/subscription/cancel', authenticateToken, async (req, res) => {
     const userId = req.user.id;
 
     // Find the current active subscription
-    const [subscriptions] = await pool.query(
+    const [subscriptions] = await db.query(
       `SELECT id, plan_id, end_date
        FROM subscriptions
        WHERE user_id = ? AND status = 'active'
@@ -430,7 +463,7 @@ router.post('/subscription/cancel', authenticateToken, async (req, res) => {
     const currentSubscription = subscriptions[0];
 
     // Update subscription status to 'cancelled' and set auto_renew to FALSE
-    await pool.query(
+    await db.query(
       `UPDATE subscriptions
        SET status = 'cancelled', auto_renew = FALSE, updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
@@ -438,7 +471,7 @@ router.post('/subscription/cancel', authenticateToken, async (req, res) => {
     );
 
     // Fetch plan details for transaction record
-    const [planDetails] = await pool.query('SELECT name, price, currency FROM plans WHERE id = ?', [currentSubscription.plan_id]);
+    const [planDetails] = await db.query('SELECT name, price, currency FROM plans WHERE id = ?', [currentSubscription.plan_id]);
     if (planDetails.length === 0) {
       console.error('Plan details not found for cancellation transaction:', currentSubscription.plan_id);
       return res.status(500).json({ message: 'Failed to record cancellation transaction: Plan details missing.' });
@@ -447,7 +480,7 @@ router.post('/subscription/cancel', authenticateToken, async (req, res) => {
 
     // Record the cancellation transaction
     const transactionId = uuidv4();
-    await pool.query(
+    await db.query(
       `INSERT INTO transactions (id, user_id, item_type, item_id, item_name, transaction_type, amount_paid, currency, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [transactionId, userId, 'subscription', currentSubscription.id, plan.name, 'Cancellation', 0.00, plan.currency, 'Completed'] // Amount paid is 0 for cancellation
@@ -470,7 +503,7 @@ router.post('/credit-packs/purchase', authenticateToken, async (req, res) => {
   }
 
   try {
-    const [creditPackDef] = await pool.query(
+    const [creditPackDef] = await db.query(
       'SELECT * FROM credit_packs_definition WHERE id = ?',
       [creditPackDefId]
     );
@@ -487,21 +520,21 @@ router.post('/credit-packs/purchase', authenticateToken, async (req, res) => {
       expirationDate.setDate(expirationDate.getDate() + pack.validity_days);
     }
 
-    await pool.query(
+    await db.query(
       `INSERT INTO user_credit_packs (id, user_id, credit_pack_def_id, credits_remaining, expiration_date)
        VALUES (?, ?, ?, ?, ?)`,
       [userCreditPackId, userId, creditPackDefId, pack.credits_amount, expirationDate]
     );
 
     // Update user's total credits
-    await pool.query(
+    await db.query(
       'UPDATE users SET credits = credits + ? WHERE id = ?',
       [pack.credits_amount, userId]
     );
 
     // Record the transaction
     const transactionId = uuidv4();
-    await pool.query(
+    await db.query(
       `INSERT INTO transactions (id, user_id, item_type, item_id, item_name, transaction_type, amount_paid, currency, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [transactionId, userId, 'credit_pack', userCreditPackId, pack.name, 'Purchase', pack.price, pack.currency, 'Completed']
@@ -524,7 +557,7 @@ router.post('/add-ons/purchase', authenticateToken, async (req, res) => {
   }
 
   try {
-    const [addOnDef] = await pool.query(
+    const [addOnDef] = await db.query(
       'SELECT * FROM add_ons_definition WHERE id = ?',
       [addOnDefId]
     );
@@ -547,7 +580,7 @@ router.post('/add-ons/purchase', authenticateToken, async (req, res) => {
     }
     // For one-time add-ons or perpetual, endDate remains NULL
 
-    await pool.query(
+    await db.query(
       `INSERT INTO user_add_ons (id, user_id, add_on_def_id, purchase_date, end_date, status)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [userAddOnId, userId, addOnDefId, new Date(), endDate, 'active']
@@ -555,7 +588,7 @@ router.post('/add-ons/purchase', authenticateToken, async (req, res) => {
 
     // Record the transaction
     const transactionId = uuidv4();
-    await pool.query(
+    await db.query(
       `INSERT INTO transactions (id, user_id, item_type, item_id, item_name, transaction_type, amount_paid, currency, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [transactionId, userId, 'add_on', userAddOnId, addOn.name, 'Purchase', addOn.price, addOn.currency, 'Completed']
@@ -571,7 +604,7 @@ router.post('/add-ons/purchase', authenticateToken, async (req, res) => {
 // Get Credit Pack Definitions
 router.get('/credit-packs/definitions', authenticateToken, async (req, res) => {
   try {
-    const [creditPacks] = await pool.query('SELECT id, name, description, credits_amount, price, currency, validity_days FROM credit_packs_definition');
+    const [creditPacks] = await db.query('SELECT id, name, description, credits_amount, price, currency, validity_days FROM credit_packs_definition');
     res.status(200).json({ creditPacks });
   } catch (error) {
     console.error('Error fetching credit pack definitions:', error);
@@ -582,7 +615,7 @@ router.get('/credit-packs/definitions', authenticateToken, async (req, res) => {
 // Get Add-on Definitions
 router.get('/add-ons/definitions', authenticateToken, async (req, res) => {
   try {
-    const [addOns] = await pool.query('SELECT id, name, description, price, currency, `interval` FROM add_ons_definition');
+    const [addOns] = await db.query('SELECT id, name, description, price, currency, `interval` FROM add_ons_definition');
     res.status(200).json({ addOns });
   } catch (error) {
     console.error('Error fetching add-on definitions:', error);
@@ -593,7 +626,7 @@ router.get('/add-ons/definitions', authenticateToken, async (req, res) => {
 // Get Plans
 router.get('/plans', authenticateToken, async (req, res) => {
   try {
-    const [plans] = await pool.query('SELECT id, name, description, price, currency, `interval` FROM plans');
+    const [plans] = await db.query('SELECT id, name, description, price, currency, `interval` FROM plans');
     res.status(200).json({ plans });
   } catch (error) {
     console.error('Error fetching plans:', error);
@@ -606,7 +639,7 @@ router.get('/roles', authenticateToken, async (req, res) => {
   // This endpoint should ideally be restricted to users with 'perm_users:manage' or 'perm_tenants:manage'
   // For now, we'll allow authenticated users to fetch roles, but proper authorization will be added in middleware.
   try {
-    const [roles] = await pool.query('SELECT id, name, description FROM roles');
+    const [roles] = await db.query('SELECT id, name, description FROM roles');
     res.status(200).json({ roles });
   } catch (error) {
     console.error('Error fetching roles:', error);
@@ -618,7 +651,7 @@ router.get('/roles', authenticateToken, async (req, res) => {
 router.get('/permissions', authenticateToken, async (req, res) => {
   // This endpoint should also be restricted.
   try {
-    const [permissions] = await pool.query('SELECT id, name, description FROM permissions');
+    const [permissions] = await db.query('SELECT id, name, description FROM permissions');
     res.status(200).json({ permissions });
   } catch (error) {
     console.error('Error fetching permissions:', error);
@@ -638,19 +671,19 @@ router.post('/users/:userId/assign-role', authenticateToken, authorize(['Manage 
 
   try {
     // Verify role exists
-    const [roleExists] = await pool.query('SELECT id FROM roles WHERE id = ?', [roleId]);
+    const [roleExists] = await db.query('SELECT id FROM roles WHERE id = ?', [roleId]);
     if (roleExists.length === 0) {
       return res.status(404).json({ message: 'Role not found.' });
     }
 
     // Verify user exists
-    const [userExists] = await pool.query('SELECT id FROM users WHERE id = ?', [userId]);
+    const [userExists] = await db.query('SELECT id FROM users WHERE id = ?', [userId]);
     if (userExists.length === 0) {
       return res.status(404).json({ message: 'User not found.' });
     }
 
     // Assign role to user
-    await pool.query(
+    await db.query(
       'UPDATE users SET role_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
       [roleId, userId]
     );
@@ -665,7 +698,7 @@ router.post('/users/:userId/assign-role', authenticateToken, authorize(['Manage 
 // Get all users (Admin-only)
 router.get('/users', authenticateToken, authorize(['Manage Users']), async (req, res) => {
   try {
-    const [users] = await pool.query(
+    const [users] = await db.query(
       `SELECT u.id, u.username, u.email, u.credits, r.name as role_name, r.id as role_id, u.created_at
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
@@ -682,7 +715,7 @@ router.get('/users', authenticateToken, authorize(['Manage Users']), async (req,
 router.get('/users/:userId', authenticateToken, authorize(['Manage Users']), async (req, res) => {
   const { userId } = req.params;
   try {
-    const [userRows] = await pool.query(
+    const [userRows] = await db.query(
       `SELECT u.id, u.username, u.email, u.credits, r.name as role_name, r.id as role_id, u.created_at
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
@@ -710,12 +743,12 @@ router.put('/users/:userId', authenticateToken, authorize(['Manage Users']), asy
 
   try {
     // Verify role exists
-    const [roleExists] = await pool.query('SELECT id FROM roles WHERE id = ?', [roleId]);
+    const [roleExists] = await db.query('SELECT id FROM roles WHERE id = ?', [roleId]);
     if (roleExists.length === 0) {
       return res.status(404).json({ message: 'Role not found.' });
     }
 
-    await pool.query(
+    await db.query(
       'UPDATE users SET username = ?, email = ?, role_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
       [username, email, roleId, userId]
     );
@@ -731,7 +764,7 @@ router.put('/users/:userId', authenticateToken, authorize(['Manage Users']), asy
 router.delete('/users/:userId', authenticateToken, authorize(['Manage Users']), async (req, res) => {
   const { userId } = req.params;
   try {
-    await pool.query('DELETE FROM users WHERE id = ?', [userId]);
+    await db.query('DELETE FROM users WHERE id = ?', [userId]);
     res.status(200).json({ message: 'User deleted successfully.' });
   } catch (error) {
     console.error('Error deleting user:', error);
@@ -743,7 +776,7 @@ router.delete('/users/:userId', authenticateToken, authorize(['Manage Users']), 
 router.get('/roles/:roleId/permissions', authenticateToken, authorize(['Manage Roles']), async (req, res) => {
   const { roleId } = req.params;
   try {
-    const [permissions] = await pool.query(
+    const [permissions] = await db.query(
       `SELECT p.id, p.name, p.description
        FROM permissions p
        JOIN role_permissions rp ON p.id = rp.permission_id
@@ -767,7 +800,7 @@ router.post('/roles', authenticateToken, authorize(['Manage Roles']), async (req
   const roleId = uuidv4();
   let connection;
   try {
-    connection = await pool.getConnection();
+    connection = await db.getConnection();
     await connection.beginTransaction();
 
     await connection.query(
@@ -785,7 +818,7 @@ router.post('/roles', authenticateToken, authorize(['Manage Roles']), async (req
 
     await connection.commit();
 
-    const [newRoleRows] = await pool.query(
+    const [newRoleRows] = await db.query(
       `SELECT id, name, description FROM roles WHERE id = ?`,
       [roleId]
     );
@@ -811,7 +844,7 @@ router.put('/roles/:roleId', authenticateToken, authorize(['Manage Roles']), asy
   }
 
   try {
-    const [result] = await pool.query(
+    const [result] = await db.query(
       'UPDATE roles SET name = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
       [name, description, roleId]
     );
@@ -838,7 +871,7 @@ router.put('/roles/:roleId/permissions', authenticateToken, authorize(['Manage R
 
   let connection;
   try {
-    connection = await pool.getConnection();
+    connection = await db.getConnection();
     await connection.beginTransaction();
 
     // 1. Delete existing permissions for the role
@@ -869,7 +902,7 @@ router.delete('/roles/:roleId', authenticateToken, authorize(['Manage Roles']), 
   const { roleId } = req.params;
   let connection;
   try {
-    connection = await pool.getConnection();
+    connection = await db.getConnection();
     await connection.beginTransaction();
 
     // First, set role_id to NULL for any users assigned to this role

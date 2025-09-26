@@ -4,8 +4,12 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     credits INT DEFAULT 0,
+    role_id VARCHAR(36), -- Foreign Key (references Roles.id)
+    company_id VARCHAR(36), -- Foreign Key (references Companies.id)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE SET NULL,
+    FOREIGN KEY (company_id) REFERENCES Companies(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS plans (
@@ -171,6 +175,7 @@ CREATE TABLE IF NOT EXISTS role_permissions (
 
 -- Initial Data for Roles
 INSERT IGNORE INTO roles (id, name, description) VALUES
+('role_super_admin', 'Super Admin', 'Global administrator with full control over all tenants and system settings.'),
 ('role_tenant_admin', 'Tenant Admin', 'Administrator with full control over their tenant.'),
 ('role_recruiter', 'Recruiter', 'Manages job postings, candidates, and interviews.'),
 ('role_hiring_manager', 'Hiring Manager', 'Reviews candidates and provides feedback.'),
@@ -194,9 +199,31 @@ INSERT IGNORE INTO permissions (id, name, description) VALUES
 ('perm_subscriptions:manage', 'Manage Subscriptions', 'Allows managing subscription plans and billing.'),
 ('perm_pricing_plans:view', 'View Pricing Plans', 'Allows viewing available pricing plans.'),
 ('perm_pricing_plans:manage', 'Manage Pricing Plans', 'Allows managing pricing plan definitions.'),
+('perm_credit_packs:manage', 'Manage Credit Packs', 'Allows managing credit pack definitions.'),
 ('perm_roles:manage', 'Manage Roles', 'Allows creating, editing, and deleting roles and their permissions.');
 
 -- Assign Permissions to Roles
+
+-- Super Admin Role Permissions
+INSERT IGNORE INTO role_permissions (role_id, permission_id) VALUES
+('role_super_admin', 'perm_dashboard:view'),
+('role_super_admin', 'perm_jobs:view'),
+('role_super_admin', 'perm_jobs:create'),
+('role_super_admin', 'perm_jobs:edit'),
+('role_super_admin', 'perm_jobs:delete'),
+('role_super_admin', 'perm_candidates:view'),
+('role_super_admin', 'perm_candidates:edit'),
+('role_super_admin', 'perm_interviews:schedule'),
+('role_super_admin', 'perm_interviews:conduct'),
+('role_super_admin', 'perm_interviews:review'),
+('role_super_admin', 'perm_users:manage'),
+('role_super_admin', 'perm_tenants:manage'),
+('role_super_admin', 'perm_subscriptions:view'),
+('role_super_admin', 'perm_subscriptions:manage'),
+('role_super_admin', 'perm_pricing_plans:view'),
+('role_super_admin', 'perm_pricing_plans:manage'),
+('role_super_admin', 'perm_credit_packs:manage'),
+('role_super_admin', 'perm_roles:manage');
 
 -- Tenant Admin Role Permissions
 INSERT IGNORE INTO role_permissions (role_id, permission_id) VALUES
@@ -216,7 +243,8 @@ INSERT IGNORE INTO role_permissions (role_id, permission_id) VALUES
 ('role_tenant_admin', 'perm_subscriptions:view'),
 ('role_tenant_admin', 'perm_subscriptions:manage'),
 ('role_tenant_admin', 'perm_pricing_plans:view'),
-('role_tenant_admin', 'perm_pricing_plans:manage');
+('role_tenant_admin', 'perm_pricing_plans:manage'),
+('role_tenant_admin', 'perm_credit_packs:manage');
 
 -- Recruiter Role Permissions
 INSERT IGNORE INTO role_permissions (role_id, permission_id) VALUES

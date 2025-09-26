@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Trash2, Plus, Minus } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AuthModal } from "@/components/AuthModal";
+import { api, PricingPlan, CreditPackDefinition } from "@/lib/api";
+import { useToast } from "@/components/ui/use-toast";
 
 interface CartItem {
   id: string;
@@ -22,48 +24,93 @@ const Renewal = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
-  
-  // Mock cart items based on URL params or default items
-  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
-    const plan = searchParams.get("plan");
-    const amount = searchParams.get("amount");
-    const type = searchParams.get("type");
-    
-    const items: CartItem[] = [];
-    
-    if (plan && amount) {
-      if (type === "subscription") {
-        items.push({
-          id: "base-plan",
-          name: plan,
-          price: amount,
-          type: "plan",
-          description: "10 credits per month + 6 months storage"
-        });
-      } else {
-        items.push({
-          id: "credits",
-          name: plan,
-          price: amount,
-          originalPrice: plan.includes("30") ? "$30" : "$150",
-          type: "credits",
-          description: plan.includes("30") ? "Valid for 3 months" : "Valid for 6 months"
-        });
-      }
-    } else {
-        items.push({
-            id: "base-plan",
-            name: "Base Plan",
-            price: "$10/month",
-            type: "plan",
-            description: "10 credits per month + 6 months storage"
-          });
-    }
-    
-    return items;
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState(true); // This should come from AuthContext
+  const { toast } = useToast();
 
+  const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>([]);
+  const [availableCreditPacks, setAvailableCreditPacks] = useState<CreditPackDefinition[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+
+  useEffect(() => {
+    const fetchPricingData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [plansResponse, creditPacksResponse] = await Promise.all([
+          api.getPricingPlans(),
+          api.getCreditPacks(),
+        ]);
+        setPricingPlans(plansResponse.data);
+        setAvailableCreditPacks(creditPacksResponse.data);
+
+        // Initialize cart based on URL params or default
+        const planParam = searchParams.get("plan");
+        const amountParam = searchParams.get("amount");
+        const typeParam = searchParams.get("type");
+
+        const initialCart: CartItem[] = [];
+
+        if (planParam && amountParam) {
+          if (typeParam === "subscription") {
+            const matchedPlan = plansResponse.data.find(p => p.name === planParam);
+            if (matchedPlan) {
+              initialCart.push({
+                id: matchedPlan.id,
+                name: matchedPlan.name,
+                price: `$${matchedPlan.price.toFixed(2)}/${matchedPlan.interval}`,
+                type: "plan",
+                description: matchedPlan.description,
+                quantity: 1,
+              });
+            }
+          } else if (typeParam === "credits") {
+            const matchedCreditPack = creditPacksResponse.data.find(cp => cp.name === planParam);
+            if (matchedCreditPack) {
+              initialCart.push({
+                id: matchedCreditPack.id,
+                name: matchedCreditPack.name,
+                price: `$${matchedCreditPack.price.toFixed(2)}`,
+                originalPrice: matchedCreditPack.price > parseFloat(amountParam) ? `$${matchedCreditPack.price.toFixed(2)}` : undefined, // Assuming amountParam is a discounted price
+                type: "credits",
+                description: matchedCreditPack.description,
+                quantity: 1,
+              });
+            }
+          }
+        } else if (plansResponse.data.length > 0) {
+          // Default to the first pricing plan if no params and plans exist
+          const defaultPlan = plansResponse.data[0];
+          initialCart.push({
+            id: defaultPlan.id,
+            name: defaultPlan.name,
+            price: `$${defaultPlan.price.toFixed(2)}/${defaultPlan.interval}`,
+            type: "plan",
+            description: defaultPlan.description,
+            quantity: 1,
+          });
+        }
+        setCartItems(initialCart);
+
+      } catch (err) {
+        console.error('Failed to fetch pricing data:', err);
+        setError('Failed to load pricing data.');
+        toast({
+          title: 'Error',
+          description: 'Failed to load pricing data.',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPricingData();
+  }, [searchParams, toast]);
+
+  // Mock availableAddons for now, as they are not yet managed via backend
   const availableAddons = [
     {
       id: "extra-storage",
@@ -78,25 +125,6 @@ const Renewal = () => {
       price: "$15/month",
       type: "addon" as const,
       description: "Up to 5 team members"
-    }
-  ];
-
-  const availableCredits = [
-    {
-      id: "credits-30",
-      name: "30 Credits",
-      price: "$25",
-      originalPrice: "$30",
-      type: "credits" as const,
-      description: "Valid for 3 months"
-    },
-    {
-      id: "credits-150",
-      name: "150 Credits",
-      price: "$100",
-      originalPrice: "$150",
-      type: "credits" as const,
-      description: "Valid for 6 months"
     }
   ];
 
@@ -141,9 +169,20 @@ const Renewal = () => {
       return;
     }
     
-    const firstItem = cartItems[0];
+    // Prepare items for checkout
+    const checkoutItems = cartItems.map(item => ({
+      id: item.id,
+      name: item.name,
+      price: parseFloat(item.price.replace(/[$,/a-zA-Z]/g, '')), // Clean price for checkout
+      type: item.type,
+      quantity: item.quantity || 1,
+    }));
+
+    // For simplicity, passing the first item's details to checkout page.
+    // In a real scenario, you'd pass all cart items or a cart ID.
+    const firstItem = checkoutItems[0];
     if (firstItem) {
-      navigate(`/checkout?plan=${encodeURIComponent(firstItem.name)}&amount=${firstItem.price}&type=${firstItem.type === 'plan' ? 'subscription' : 'payment'}`);
+      navigate(`/checkout?plan=${encodeURIComponent(firstItem.name)}&amount=${firstItem.price}&type=${firstItem.type === 'plan' ? 'subscription' : firstItem.type}`);
     }
   };
 
@@ -270,7 +309,7 @@ const Renewal = () => {
                 <p className="text-sm text-muted-foreground">1 video session = 1 credit</p>
               </CardHeader>
               <CardContent className="space-y-3">
-                {availableCredits.map(item => {
+                {availableCreditPacks.map(item => {
                   const isInCart = creditItems.some(cartItem => cartItem.id === item.id);
                   return (
                     <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg">
@@ -278,13 +317,20 @@ const Renewal = () => {
                         <h4 className="font-medium">{item.name}</h4>
                         <p className="text-sm text-muted-foreground">{item.description}</p>
                         <div className="flex items-center gap-2">
-                          <span className="text-lg font-semibold text-primary">{item.price}</span>
-                          <span className="text-sm text-muted-foreground line-through">{item.originalPrice}</span>
+                          <span className="text-lg font-semibold text-primary">${item.price.toFixed(2)}</span>
+                          {/* Assuming originalPrice logic might be handled by backend or not needed here */}
                         </div>
                       </div>
                       <Button 
                         variant={isInCart ? "secondary" : "outline"}
-                        onClick={() => addToCart(item)}
+                        onClick={() => addToCart({
+                          id: item.id,
+                          name: item.name,
+                          price: `$${item.price.toFixed(2)}`,
+                          type: "credits",
+                          description: item.description,
+                          quantity: 1,
+                        })}
                         disabled={isInCart}
                       >
                         {isInCart ? "In Cart" : "Add to Cart"}

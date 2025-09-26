@@ -30,19 +30,6 @@ const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ children }) =
   const { logout, hasPermission, user } = useAuth(); // Get hasPermission and user object
   const navigate = useNavigate();
 
-  // Debugging useEffect - remove after fixing
-  useEffect(() => {
-    if (user) {
-      console.log("DEBUG: AuthenticatedLayout - User object:", user);
-      console.log("DEBUG: AuthenticatedLayout - User Permissions array:", user.permissions);
-      console.log("DEBUG: AuthenticatedLayout - Checking 'View Dashboard' directly:", user.permissions.includes('View Dashboard'));
-      console.log("DEBUG: AuthenticatedLayout - Checking 'Manage Users' directly:", user.permissions.includes('Manage Users'));
-      console.log("DEBUG: AuthenticatedLayout - hasPermission('View Dashboard'):", hasPermission('View Dashboard'));
-      console.log("DEBUG: AuthenticatedLayout - hasPermission('Manage Users'):", hasPermission('Manage Users'));
-    } else {
-      console.log("DEBUG: AuthenticatedLayout - User is null.");
-    }
-  }, [user, hasPermission]); // Added hasPermission to dependencies
 
   const handleLogout = () => {
     logout();
