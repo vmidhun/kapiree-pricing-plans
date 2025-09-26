@@ -1,5 +1,5 @@
-## Release Notes - Version 1.0.0 (Internal)
-
+## Release Notes - Release-V1.1-25-Sep-2025 (Internal)
+## Git Branch Release-V1.1-25-Sep-2025
 This release focuses on enhancing user authentication security and providing essential account recovery features, alongside existing core functionalities.
 
 **New Features & Improvements:**
