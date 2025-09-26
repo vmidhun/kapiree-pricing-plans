@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AppRoutes from "./routes/AppRoutes"; // Import the new AppRoutes component
+// Removed AuthProvider import as it's now handled in main.tsx
+// import { AuthProvider } from "./context/AuthContext";
 
 const queryClient = new QueryClient();
 
@@ -11,6 +13,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      {/* Removed AuthProvider wrapper as it's now handled in main.tsx */}
       <AppRoutes />
     </TooltipProvider>
   </QueryClientProvider>

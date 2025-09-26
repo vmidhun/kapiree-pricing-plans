@@ -64,14 +64,27 @@ const setToken = (token: string) => {
   localStorage.setItem("authToken", token);
 };
 
+// We need a way to trigger logout from AuthContext.
+// This is a temporary workaround. In a real application, you might use a global event bus
+// or pass the logout function down through context/props more explicitly.
+let globalTriggerLogout: (() => void) | null = null;
+
+export const setGlobalTriggerLogout = (func: () => void) => {
+  globalTriggerLogout = func;
+};
+
 const clearAuth = () => {
   localStorage.removeItem("authToken");
   localStorage.removeItem("user");
+  globalTriggerLogout?.(); // Trigger logout from AuthContext
 };
 
 async function refreshToken(): Promise<boolean> {
   const token = getToken();
-  if (!token) return false;
+  if (!token) {
+    clearAuth(); // Clear auth if no token is found
+    return false;
+  }
   try {
     const res = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
       method: "POST",
@@ -79,7 +92,10 @@ async function refreshToken(): Promise<boolean> {
         Authorization: `Bearer ${token}`,
       },
     });
-    if (!res.ok) return false;
+    if (!res.ok) {
+      clearAuth(); // Clear auth if refresh fails
+      return false;
+    }
     const data = await res.json() as { token?: string; user?: unknown };
     if (data?.token) {
       setToken(data.token);
@@ -88,8 +104,11 @@ async function refreshToken(): Promise<boolean> {
       }
       return true;
     }
+    clearAuth(); // Clear auth if no token in refresh response
     return false;
-  } catch {
+  } catch (error) {
+    console.error("Error refreshing token:", error);
+    clearAuth(); // Clear auth on network error during refresh
     return false;
   }
 }
@@ -126,7 +145,7 @@ export async function apiFetch<T = unknown>(path: string, options: RequestOption
         body: options.body ? JSON.stringify(options.body) : undefined,
       });
     } else {
-      clearAuth();
+      clearAuth(); // Logout if refresh failed
     }
   }
 
@@ -135,6 +154,10 @@ export async function apiFetch<T = unknown>(path: string, options: RequestOption
     const error = new Error((errorBody as { message?: string })?.message || "Request failed") as Error & { status?: number; body?: unknown };
     error.status = res.status;
     error.body = errorBody;
+    // If the error is still 401/403 after refresh attempt, or if it's a server error, trigger logout
+    if (res.status === 401 || res.status === 403 || res.status >= 500) {
+      clearAuth();
+    }
     throw error;
   }
 
@@ -151,6 +174,12 @@ export const api = {
     apiFetch<{ data: T }>(path, { method: "PUT", headers, body }),
   delete: <T = unknown>(path: string, headers?: Record<string, string>) =>
     apiFetch<{ data: T }>(path, { method: "DELETE", headers }),
+
+  // Authentication related APIs
+  forgotPassword: (email: string) =>
+    api.post<{ message: string }>("/api/auth/forgot-password", { email }),
+  resetPassword: (token: string, newPassword: string) =>
+    api.post<{ message: string }>("/api/auth/reset-password", { token, newPassword }),
 
   // Pricing Plans API
   getPricingPlans: () => api.get<PricingPlan[]>("/api/pricing-plans"),

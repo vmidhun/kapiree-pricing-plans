@@ -172,6 +172,11 @@ const LoginPage: React.FC = () => {
                         )}
                       </Button>
                     </div>
+                    <div className="text-right text-sm">
+                      <a href="/forgot-password" className="font-medium text-primary hover:underline">
+                        Forgot password?
+                      </a>
+                    </div>
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Signing in..." : "Sign In"}

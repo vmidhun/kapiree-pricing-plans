@@ -4,8 +4,21 @@ const jwt = require('jsonwebtoken');
 const db = require('../database'); // Import the database connection pool
 const { v4: uuidv4 } = require('uuid'); // Import uuid
 const { authenticateToken, authorize } = require('../middleware/auth'); // Import authorize
+const nodemailer = require('nodemailer'); // Import nodemailer
+const { getPasswordResetEmailTemplate } = require('../emails/password_reset_template'); // Import email template
 
 const router = express.Router();
+
+// Configure Nodemailer transporter
+const transporter = nodemailer.createTransport({
+  host: process.env.EMAIL_HOST,
+  port: process.env.EMAIL_PORT,
+  secure: process.env.EMAIL_SECURE === 'true', // Use 'true' for 465, 'false' for 587
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
 // Register User
 router.post('/register', async (req, res) => {
@@ -243,6 +256,81 @@ router.post('/update-credits', authenticateToken, async (req, res) => {
 // Logout User (token will be invalidated on client side)
 router.post('/logout', (req, res) => {
   res.status(200).json({ message: 'Logged out successfully' });
+});
+
+// Forgot Password Request
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const [userRows] = await db.query('SELECT id, username FROM users WHERE email = ?', [email]);
+    if (userRows.length === 0) {
+      // For security, don't reveal if the email exists or not
+      return res.status(200).json({ message: 'If an account with that email exists, a password reset link has been sent.' });
+    }
+    const user = userRows[0];
+
+    const resetToken = uuidv4();
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 1); // Token valid for 1 hour
+
+    await db.query(
+      'INSERT INTO password_reset_tokens (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)',
+      [uuidv4(), user.id, resetToken, expiresAt]
+    );
+
+    const resetLink = `${process.env.CLIENT_BASE_URL}/reset-password?token=${resetToken}`;
+    const emailTemplate = getPasswordResetEmailTemplate(resetLink);
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to: user.email,
+      subject: 'Kapiree Password Reset Request',
+      html: emailTemplate,
+    });
+
+    res.status(200).json({ message: 'If an account with that email exists, a password reset link has been sent.' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ message: 'Server error during password reset request' });
+  }
+});
+
+// Reset Password
+router.post('/reset-password', async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  if (!token || !newPassword) {
+    return res.status(400).json({ message: 'Token and new password are required.' });
+  }
+
+  try {
+    const [resetTokenRows] = await db.query(
+      'SELECT user_id, expires_at FROM password_reset_tokens WHERE token = ? AND expires_at > NOW()',
+      [token]
+    );
+
+    if (resetTokenRows.length === 0) {
+      return res.status(400).json({ message: 'Invalid or expired password reset token.' });
+    }
+
+    const userId = resetTokenRows[0].user_id;
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const password_hash = await bcrypt.hash(newPassword, salt);
+
+    // Update user's password
+    await db.query('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [password_hash, userId]);
+
+    // Invalidate the reset token
+    await db.query('DELETE FROM password_reset_tokens WHERE token = ?', [token]);
+
+    res.status(200).json({ message: 'Password has been reset successfully.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ message: 'Server error during password reset' });
+  }
 });
 
 // Refresh Token (optional endpoint for future use)

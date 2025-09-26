@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom"; // Removed BrowserRouter
 import { useEffect } from "react";
 import Index from "../pages/Index";
 import HomePortal from "../pages/HomePortal"; // Import the new HomePortal component
@@ -18,9 +18,12 @@ import RoleManagementPage from "../pages/RoleManagementPage"; // Import RoleMana
 import TenantManagementPage from "../pages/TenantManagementPage";
 import ReportingAnalyticsPage from "../pages/ReportingAnalyticsPage";
 import PricingPlansManagementPage from "../pages/PricingPlansManagementPage";
+import ForgotPasswordPage from "../pages/ForgotPasswordPage"; // Import ForgotPasswordPage
+import ResetPasswordPage from "../pages/ResetPasswordPage"; // Import ResetPasswordPage
 import AuthenticatedLayout from "../components/AuthenticatedLayout"; // Import AuthenticatedLayout
 import UnauthenticatedLayout from "../components/UnauthenticatedLayout"; // Import UnauthenticatedLayout
 import { useAuth } from "../context/AuthContext"; // Import useAuth hook from context
+import { setGlobalTriggerLogout } from "../lib/api"; // Import setGlobalTriggerLogout
 
 // AuthRedirect component to handle redirection for logged-in users
 const AuthRedirect = () => {
@@ -61,44 +64,49 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/signin" replace />; // Redirect to /signin instead of /
   }
 
   return children;
 };
 
 const AppRoutes = () => {
-  const { user, isLoading } = useAuth(); // Get user and isLoading from useAuth
+  const { user, isLoading, triggerLogout } = useAuth(); // Get user, isLoading, and triggerLogout from useAuth
+
+  useEffect(() => {
+    // Set the global logout function from AuthContext
+    setGlobalTriggerLogout(triggerLogout);
+  }, [triggerLogout]);
 
   if (isLoading) {
     return <div>Loading application...</div>; // Show a global loading indicator
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<AuthRedirect />} /> {/* Use AuthRedirect for the root path */}
-        <Route path="/pricing" element={<UnauthenticatedLayout><Index /></UnauthenticatedLayout>} /> {/* Public pricing page, using the original Index page */}
-        <Route path="/signin" element={<LoginPage />} /> {/* Dedicated login page */}
-        <Route path="/cart" element={<Cart />} />
-        <Route path="/renewal" element={<Renewal />} />
-        <Route path="/checkout" element={<MockStripeCheckout />} />
-        <Route path="/payment-success" element={<PaymentSuccess />} />
-        <Route path="/dashboard" element={<ProtectedRoute><AuthenticatedLayout><DashboardPage /></AuthenticatedLayout></ProtectedRoute>} />
-        <Route path="/subscription" element={<ProtectedRoute><AuthenticatedLayout><SubscriptionPage /></AuthenticatedLayout></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute><AuthenticatedLayout><div>Settings Page (Placeholder)</div></AuthenticatedLayout></ProtectedRoute>} /> {/* Placeholder for settings */}
-        <Route path="/jobs" element={<ProtectedRoute><AuthenticatedLayout><JobPositionsPage /></AuthenticatedLayout></ProtectedRoute>} />
-        <Route path="/candidates" element={<ProtectedRoute><AuthenticatedLayout><CandidateManagementPage /></AuthenticatedLayout></ProtectedRoute>} />
-        <Route path="/interviews" element={<ProtectedRoute><AuthenticatedLayout><InterviewManagementPage /></AuthenticatedLayout></ProtectedRoute>} />
-        <Route path="/users" element={<ProtectedRoute><AuthenticatedLayout><UserManagementPage key={user?.id} /></AuthenticatedLayout></ProtectedRoute>} />
-        <Route path="/roles" element={<ProtectedRoute><AuthenticatedLayout><RoleManagementPage /></AuthenticatedLayout></ProtectedRoute>} /> {/* New route for Role Management */}
-        <Route path="/tenants" element={<ProtectedRoute><AuthenticatedLayout><TenantManagementPage /></AuthenticatedLayout></ProtectedRoute>} />
-        <Route path="/reports" element={<ProtectedRoute><AuthenticatedLayout><ReportingAnalyticsPage /></AuthenticatedLayout></ProtectedRoute>} />
-        <Route path="/pricing-management" element={<ProtectedRoute><AuthenticatedLayout><PricingPlansManagementPage /></AuthenticatedLayout></ProtectedRoute>} />
-        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </BrowserRouter>
+    <Routes>
+      <Route path="/" element={<AuthRedirect />} /> {/* Use AuthRedirect for the root path */}
+      <Route path="/pricing" element={<UnauthenticatedLayout><Index /></UnauthenticatedLayout>} /> {/* Public pricing page, using the original Index page */}
+      <Route path="/signin" element={<LoginPage />} /> {/* Dedicated login page */}
+      <Route path="/forgot-password" element={<UnauthenticatedLayout><ForgotPasswordPage /></UnauthenticatedLayout>} /> {/* Forgot password page */}
+      <Route path="/reset-password" element={<UnauthenticatedLayout><ResetPasswordPage /></UnauthenticatedLayout>} /> {/* Reset password page */}
+      <Route path="/cart" element={<Cart />} />
+      <Route path="/renewal" element={<Renewal />} />
+      <Route path="/checkout" element={<MockStripeCheckout />} />
+      <Route path="/payment-success" element={<PaymentSuccess />} />
+      <Route path="/dashboard" element={<ProtectedRoute><AuthenticatedLayout><DashboardPage /></AuthenticatedLayout></ProtectedRoute>} />
+      <Route path="/subscription" element={<ProtectedRoute><AuthenticatedLayout><SubscriptionPage /></AuthenticatedLayout></ProtectedRoute>} />
+      <Route path="/settings" element={<ProtectedRoute><AuthenticatedLayout><div>Settings Page (Placeholder)</div></AuthenticatedLayout></ProtectedRoute>} /> {/* Placeholder for settings */}
+      <Route path="/jobs" element={<ProtectedRoute><AuthenticatedLayout><JobPositionsPage /></AuthenticatedLayout></ProtectedRoute>} />
+      <Route path="/candidates" element={<ProtectedRoute><AuthenticatedLayout><CandidateManagementPage /></AuthenticatedLayout></ProtectedRoute>} />
+      <Route path="/interviews" element={<ProtectedRoute><AuthenticatedLayout><InterviewManagementPage /></AuthenticatedLayout></ProtectedRoute>} />
+      <Route path="/users" element={<ProtectedRoute><AuthenticatedLayout><UserManagementPage key={user?.id} /></AuthenticatedLayout></ProtectedRoute>} />
+      <Route path="/roles" element={<ProtectedRoute><AuthenticatedLayout><RoleManagementPage /></AuthenticatedLayout></ProtectedRoute>} /> {/* New route for Role Management */}
+      <Route path="/tenants" element={<ProtectedRoute><AuthenticatedLayout><TenantManagementPage /></AuthenticatedLayout></ProtectedRoute>} />
+      <Route path="/reports" element={<ProtectedRoute><AuthenticatedLayout><ReportingAnalyticsPage /></AuthenticatedLayout></ProtectedRoute>} />
+      <Route path="/pricing-management" element={<ProtectedRoute><AuthenticatedLayout><PricingPlansManagementPage /></AuthenticatedLayout></ProtectedRoute>} />
+      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   );
 };
 

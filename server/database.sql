@@ -268,3 +268,12 @@ INSERT IGNORE INTO role_permissions (role_id, permission_id) VALUES
 -- Candidate Role Permissions (minimal access)
 INSERT IGNORE INTO role_permissions (role_id, permission_id) VALUES
 ('role_candidate', 'perm_dashboard:view'); -- Can view their own dashboard/applications
+
+-- Table for Password Reset Tokens
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token VARCHAR(255) UNIQUE NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

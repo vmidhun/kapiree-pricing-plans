@@ -25,7 +25,7 @@ const DashboardPage = () => {
 
     const fetchUserProfile = async () => {
       try {
-        const response = await api.get<{ user: { id: string; username: string; email: string; credits: number; role: string; permissions: string[] } }>(
+        const response = await api.get<{ user: { id: string; username: string; email: string; credits: number; role: string; permissions: string[]; company_id: string | null; } }>(
           "/api/auth/profile"
         );
         setUser(response.data.user);

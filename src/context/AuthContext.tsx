@@ -1,4 +1,5 @@
-import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useContext, useRef } from 'react';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 interface User {
   id: string;
@@ -19,6 +20,8 @@ interface AuthState {
   logout: () => void;
   setUser: (user: User) => void;
   hasPermission: (permission: string) => boolean;
+  // Add a way to trigger logout from outside, e.g., from api.ts
+  triggerLogout: () => void;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -28,6 +31,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setTokenState] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const navigate = useNavigate(); // Initialize useNavigate
+
+  // Ref to store the logout function to be accessible from outside
+  const logoutRef = useRef<() => void>();
+
+  const logout = useCallback(() => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    setUserState(null);
+    setTokenState(null);
+    setIsAuthenticated(false);
+    navigate('/signin', { replace: true }); // Redirect to sign-in page
+  }, [navigate]);
+
+  // Assign logout to the ref
+  useEffect(() => {
+    logoutRef.current = logout;
+  }, [logout]);
+
+  // Expose a function to trigger logout from outside
+  const triggerLogout = useCallback(() => {
+    logoutRef.current?.();
+  }, []);
 
   useEffect(() => {
     const storedToken = localStorage.getItem('authToken');
@@ -41,12 +67,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsAuthenticated(true);
       } catch (error) {
         console.error("Failed to parse user from localStorage:", error);
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('user');
+        logout(); // Logout if stored user data is corrupted
       }
     }
     setIsLoading(false);
-  }, []);
+  }, [logout]);
 
   const login = useCallback((newToken: string, newUser: User) => {
     localStorage.setItem('authToken', newToken);
@@ -54,14 +79,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUserState(newUser);
     setTokenState(newToken);
     setIsAuthenticated(true);
-  }, []);
-
-  const logout = useCallback(() => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    setUserState(null);
-    setTokenState(null);
-    setIsAuthenticated(false);
   }, []);
 
   const setUser = useCallback((updatedUser: User) => {
@@ -82,6 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logout,
     setUser,
     hasPermission,
+    triggerLogout, // Expose triggerLogout
   };
 
   return (
